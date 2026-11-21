@@ -1,0 +1,18 @@
+Received fields:
+Array
+(
+    [0] => nomor_ijazah_nasional
+    [1] => nomor_sk_ban_pt
+    [2] => nilai_akreditasi
+    [3] => nama_mahasiswa
+    [4] => tempat_tanggal_lahir
+    [5] => nim
+    [6] => nik
+    [7] => prodi_fakultas_tgl_lulus
+    [8] => gelar
+    [9] => kota_tanggal_ijazah
+    [10] => nama_rektor
+    [11] => nidn_rektor
+    [12] => nama_dekan
+    [13] => nidn_dekan
+)
