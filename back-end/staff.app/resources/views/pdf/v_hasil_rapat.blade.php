@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+
+    <style>
+        /* ===== PAGE ===== */
+        @page {
+            margin: 0cm 2cm 1cm 2cm;
+        }
+
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #000;
+        }
+
+        /* ===== KOP SURAT ===== */
+        .kop {
+            margin-top: 0.1cm;
+            margin-left: -1.5cm;
+            margin-right: -1.5cm;
+        }
+
+        .kop img {
+            margin-top: 0px;
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* ===== KONTEN ===== */
+        .content {
+            padding-bottom: 1cm;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-justify {
+            text-align: justify;
+        }
+
+        .text-bold {
+            font-weight: bold;
+        }
+
+        .text-underline {
+            text-decoration: underline;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td {
+            vertical-align: top;
+            padding: 3px 0;
+        }
+
+        .margin-bottom-10 {
+            margin-bottom: 10px;
+        }
+
+        .margin-bottom-20 {
+            margin-bottom: 20px;
+        }
+
+        .margin-top-20 {
+            margin-top: 20px;
+        }
+
+        /* ===== TABLE BORDERED ===== */
+        .table-bordered {
+            border: 1px solid #000;
+            margin-bottom: 15px;
+        }
+
+        .table-bordered th,
+        .table-bordered td {
+            border: 1px solid #000;
+            padding: 8px;
+        }
+
+        .table-bordered th {
+            background-color: #f0f0f0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* ===== PEMBAHASAN ===== */
+        .pembahasan-content {
+            text-align: justify;
+            line-height: 1.6;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fafafa;
+            border: 1px solid #ddd;
+        }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 12pt;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- KOP SURAT -->
+    <div class="kop">
+        @if(isset($kopBase64))
+        <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @endif
+    </div>
+
+    <!-- ISI SURAT -->
+    <div class="content">
+
+        <div class="text-center text-bold text-underline" style="font-size: 14pt;">
+            NOTULA RAPAT
+        </div>
+        <div class="text-center margin-bottom-20">
+            Nomor: {{ $nomor_surat }}
+        </div>
+
+        <!-- DATA RAPAT -->
+        <table class="margin-bottom-20">
+            <tr>
+                <td width="25%">Agenda</td>
+                <td width="3%">:</td>
+                <td><strong>{{ $agenda }}</strong></td>
+            </tr>
+            <tr>
+                <td>Hari/Tanggal</td>
+                <td>:</td>
+                <td>{{ $tanggal }}</td>
+            </tr>
+            <tr>
+                <td>Waktu</td>
+                <td>:</td>
+                <td>{{ $waktu ?? '-' }}</td>
+            </tr>
+            <tr>
+                <td>Tempat</td>
+                <td>:</td>
+                <td>{{ $tempat ?? '-' }}</td>
+            </tr>
+        </table>
+
+        <!-- HASIL PEMBAHASAN -->
+        <div class="section-title">HASIL PEMBAHASAN</div>
+
+        <div class="pembahasan-content">
+            @if(isset($pembahasan) && $pembahasan)
+            {!! $pembahasan !!}
+            @else
+            <em>Tidak ada hasil pembahasan.</em>
+            @endif
+        </div>
+
+        <!-- DAFTAR ANGGOTA RAPAT -->
+        <div class="section-title">DAFTAR HADIR PESERTA RAPAT</div>
+
+        @if(isset($anggota) && count($anggota) > 0)
+        <table class="table-bordered">
+            <thead>
+                <tr>
+                    <th width="8%">No</th>
+                    <th>Nama</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($anggota as $index => $a)
+                <tr>
+                    <td style="text-align: center;">{{ $index + 1 }}</td>
+                    <td>{{ $a->user->name ?? '-' }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        @else
+        <p><em>Tidak ada data anggota rapat.</em></p>
+        @endif
+        <!-- PENUTUP -->
+        <p class="margin-top-20 text-justify">
+            Demikian notula rapat ini dibuat untuk dapat dipergunakan sebagaimana mestinya.
+        </p>
+
+@php
+    $finalKepala = !empty($ketua) ? $ketua : null;
+    $finalNidn   = !empty($nidn) ? $nidn : null;
+    if (empty($finalKepala) || empty($finalNidn)) {
+        $fallback = \App\Services\SuratService::resolveSigner('SHR', [
+            'prodi_id' => $prodi_id ?? null,
+            'ketua' => $finalKepala,
+            'nidn'  => $finalNidn,
+        ]);
+        if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
+        if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
+    }
+@endphp
+        <table class="ttd" width="100%" cellpadding="0" cellspacing="0" style="margin-top:30px;">
+            <tr>
+                <td width="55%"></td>
+                <td width="45%" style="text-align:center;">
+                    Pasuruan, {{ $tanggal ?? date('d F Y') }}<br>
+                    Pimpinan Rapat<br>
+                    <br><br><br>
+                    <div class="text-bold text-underline">{{ $finalKepala }}</div>
+                    @if(!empty($finalNidn))
+                    <div>NIDN. {{ $finalNidn }}</div>
+                    @endif
+                </td>
+            </tr>
+        </table>
+
+    </div>
+
+</body>
+
+</html>
