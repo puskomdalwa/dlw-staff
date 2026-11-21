@@ -16,7 +16,6 @@ return new class extends Migration
             $table->string('kode', 10);
             $table->string('nama', 100);
             $table->string('dekan', 100);
-            $table->string('nidn', 100)->nullable();
             $table->integer('tanda_tangan_id')->nullable();
             $table->timestamps();
         });

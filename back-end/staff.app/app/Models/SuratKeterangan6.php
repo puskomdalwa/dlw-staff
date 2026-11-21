@@ -43,6 +43,11 @@ class SuratKeterangan6 extends Model
         return $this->belongsTo(SuratKeteranganQismulAman::class, 'surat_keterangan_qismul_aman_id');
     }
 
+    public function signatures()
+    {
+        return $this->hasMany(Sk6Signature::class, 'surat_keterangan_6_id')->orderBy('step_order');
+    }
+
     // Dummy mutator untuk status karena surat_keterangan_6 tidak memiliki kolom status di database.
     // Menghindari QueryException saat job upload mengupdate status.
     public function setStatusAttribute($value)

@@ -1,0 +1,24 @@
+{
+  "name": "dlw-staff",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simple task-runner monorepo for dlw-staff (standalone backend & frontend)",
+  "scripts": {
+    "setup": "npm run install:all",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "install:backend": "composer --working-dir=back-end/staff.app install && npm --prefix back-end/staff.app install",
+    "install:frontend": "npm --prefix front-end install",
+    "dev": "node -e \"const{spawn}=require('child_process');const p=[spawn('npm run dev:backend',{stdio:'inherit',shell:true}),spawn('npm run dev:frontend',{stdio:'inherit',shell:true})];const stop=()=>{for(const c of p){if(c.pid&&!c.killed){process.platform==='win32'?spawn('taskkill /pid '+c.pid+' /t /f',{stdio:'ignore',shell:true}):c.kill('SIGTERM')}}};process.on('SIGINT',stop);process.on('SIGTERM',stop);for(const c of p){c.on('exit',code=>{stop();process.exit(code??0)})}\"",
+    "dev:backend": "cd back-end/staff.app && php artisan serve",
+    "dev:frontend": "npm --prefix front-end run dev",
+    "dev:queue": "cd back-end/staff.app && php artisan queue:listen --tries=1",
+    "build": "npm run build:frontend",
+    "build:frontend": "npm --prefix front-end run build",
+    "build:backend": "npm --prefix back-end/staff.app run build",
+    "test": "composer --working-dir=back-end/staff.app test",
+    "artisan": "cd back-end/staff.app && php artisan",
+    "migrate": "cd back-end/staff.app && php artisan migrate",
+    "migrate:status": "cd back-end/staff.app && php artisan migrate:status",
+    "migrate:path": "node -e \"const{spawnSync}=require('child_process');const a=process.argv.slice(1);if(!a[0]){console.error('Contoh: npm run migrate:path -- 2026_01_01_000000_example.php');process.exit(1)}const p=a[0].startsWith('database/')?a[0]:'database/migrations/'+a[0];const r=spawnSync('php artisan migrate --path='+p+' '+a.slice(1).join(' '),{cwd:'back-end/staff.app',stdio:'inherit',shell:true});process.exit(r.status??1)\""
+  }
+}

@@ -112,8 +112,44 @@
         }
 
         table.table-persyaratan td.cell-blank {
-            height: 48px;
+            height: 58px;
             vertical-align: middle;
+        }
+
+        .qr-cell {
+            text-align: center;
+            vertical-align: middle;
+            padding: 4px 6px !important;
+        }
+
+        .qr-img {
+            width: 56px;
+            height: 56px;
+            display: block;
+            margin: 0 auto 2px auto;
+        }
+
+        .qr-caption {
+            font-size: 7pt;
+            color: #334155;
+            line-height: 1.15;
+        }
+
+        .jabatan-cell {
+            text-align: center;
+            vertical-align: middle;
+            font-size: 8.5pt;
+            line-height: 1.25;
+        }
+
+        .jabatan-signer {
+            font-weight: bold;
+            margin-top: 3px;
+        }
+
+        .jabatan-nidn {
+            font-size: 7.5pt;
+            color: #475569;
         }
 
         .sub-item {
@@ -234,6 +270,13 @@
                 <th width="25%">TANDA TANGAN DAN STEMPEL</th>
             </tr>
         </thead>
+        @php
+            $qrSteps = $qr_steps ?? [];
+            $stepPondok = $qrSteps['keuangan_pondok'] ?? [];
+            $stepBaku = $qrSteps['baku'] ?? [];
+            $stepBaak = $qrSteps['baak'] ?? [];
+            $stepWarek = $qrSteps['warek_1'] ?? [];
+        @endphp
         <tbody>
             <tr>
                 <td class="text-center font-bold">1</td>
@@ -242,8 +285,28 @@
                     <div class="sub-item">a. Membayar seluruh biaya Pendidikan sesuai ketentuan</div>
                     <div class="sub-item">b. Tidak memiliki segala bentuk semua tanggungan</div>
                 </td>
-                <td class="cell-blank"></td>
-                <td class="cell-blank"></td>
+                <td class="cell-blank jabatan-cell">
+                    @if(!empty($stepPondok['is_signed']))
+                        <div>{{ $stepPondok['title'] ?? 'Keuangan Pondok' }}</div>
+                        @if(!empty($stepPondok['signer_name']) && $stepPondok['signer_name'] !== '-')
+                            <div class="jabatan-signer">{{ $stepPondok['signer_name'] }}</div>
+                        @endif
+                        @if(!empty($stepPondok['signer_nidn']))
+                            <div class="jabatan-nidn">NIDN/NIY. {{ $stepPondok['signer_nidn'] }}</div>
+                        @endif
+                    @endif
+                </td>
+                <td class="cell-blank qr-cell">
+                    @if(!empty($include_qr) && !empty($stepPondok['qr_data_uri']))
+                        <img src="{{ $stepPondok['qr_data_uri'] }}" alt="QR Keuangan Pondok" class="qr-img">
+                        <div class="qr-caption">
+                            Terkonfirmasi QR
+                            @if(!empty($stepPondok['signed_at_date']))
+                                <br>{{ $stepPondok['signed_at_date'] }}
+                            @endif
+                        </div>
+                    @endif
+                </td>
             </tr>
             <tr>
                 <td class="text-center font-bold">2</td>
@@ -253,8 +316,28 @@
                     <div class="sub-item">b. Membayar biaya wisuda bagi mahasiswa</div>
                     <div class="sub-item">c. Tidak memiliki segala bentuk semua tanggungan</div>
                 </td>
-                <td class="cell-blank"></td>
-                <td class="cell-blank"></td>
+                <td class="cell-blank jabatan-cell">
+                    @if(!empty($stepBaku['is_signed']))
+                        <div>{{ $stepBaku['title'] ?? 'Kepala Biro Administrasi Keuangan' }}</div>
+                        @if(!empty($stepBaku['signer_name']) && $stepBaku['signer_name'] !== '-')
+                            <div class="jabatan-signer">{{ $stepBaku['signer_name'] }}</div>
+                        @endif
+                        @if(!empty($stepBaku['signer_nidn']))
+                            <div class="jabatan-nidn">NIDN/NIY. {{ $stepBaku['signer_nidn'] }}</div>
+                        @endif
+                    @endif
+                </td>
+                <td class="cell-blank qr-cell">
+                    @if(!empty($include_qr) && !empty($stepBaku['qr_data_uri']))
+                        <img src="{{ $stepBaku['qr_data_uri'] }}" alt="QR BAKU" class="qr-img">
+                        <div class="qr-caption">
+                            Terkonfirmasi QR
+                            @if(!empty($stepBaku['signed_at_date']))
+                                <br>{{ $stepBaku['signed_at_date'] }}
+                            @endif
+                        </div>
+                    @endif
+                </td>
             </tr>
             <tr>
                 <td class="text-center font-bold">3</td>
@@ -262,8 +345,28 @@
                     <div class="font-bold">BEBAS TANGGUNGAN AKADEMIK JAMIAH</div>
                     <div class="sub-item">a. Menyerahkan Skripsi 1 Jilid yang sudah disahkan oleh dewan penguji dan file skripsi</div>
                 </td>
-                <td class="cell-blank"></td>
-                <td class="cell-blank"></td>
+                <td class="cell-blank jabatan-cell">
+                    @if(!empty($stepBaak['is_signed']))
+                        <div>{{ $stepBaak['title'] ?? 'Kepala BAAK' }}</div>
+                        @if(!empty($stepBaak['signer_name']) && $stepBaak['signer_name'] !== '-')
+                            <div class="jabatan-signer">{{ $stepBaak['signer_name'] }}</div>
+                        @endif
+                        @if(!empty($stepBaak['signer_nidn']))
+                            <div class="jabatan-nidn">NIDN/NIY. {{ $stepBaak['signer_nidn'] }}</div>
+                        @endif
+                    @endif
+                </td>
+                <td class="cell-blank qr-cell">
+                    @if(!empty($include_qr) && !empty($stepBaak['qr_data_uri']))
+                        <img src="{{ $stepBaak['qr_data_uri'] }}" alt="QR BAAK" class="qr-img">
+                        <div class="qr-caption">
+                            Terkonfirmasi QR
+                            @if(!empty($stepBaak['signed_at_date']))
+                                <br>{{ $stepBaak['signed_at_date'] }}
+                            @endif
+                        </div>
+                    @endif
+                </td>
             </tr>
             <tr>
                 <td class="text-center font-bold">4</td>
@@ -271,8 +374,28 @@
                     <div class="font-bold">Rekomendasi Yayasan Pengambilan Ijazah IAI DALWA</div>
                     <div class="font-bold">Pengasuh Pondok Pesantren atau Wakil Rektor I</div>
                 </td>
-                <td class="cell-blank"></td>
-                <td class="cell-blank"></td>
+                <td class="cell-blank jabatan-cell">
+                    @if(!empty($stepWarek['is_signed']))
+                        <div>{{ $stepWarek['title'] ?? 'Wakil Rektor I' }}</div>
+                        @if(!empty($stepWarek['signer_name']) && $stepWarek['signer_name'] !== '-')
+                            <div class="jabatan-signer">{{ $stepWarek['signer_name'] }}</div>
+                        @endif
+                        @if(!empty($stepWarek['signer_nidn']))
+                            <div class="jabatan-nidn">NIDN/NIY. {{ $stepWarek['signer_nidn'] }}</div>
+                        @endif
+                    @endif
+                </td>
+                <td class="cell-blank qr-cell">
+                    @if(!empty($include_qr) && !empty($stepWarek['qr_data_uri']))
+                        <img src="{{ $stepWarek['qr_data_uri'] }}" alt="QR Wakil Rektor I" class="qr-img">
+                        <div class="qr-caption">
+                            Terkonfirmasi QR
+                            @if(!empty($stepWarek['signed_at_date']))
+                                <br>{{ $stepWarek['signed_at_date'] }}
+                            @endif
+                        </div>
+                    @endif
+                </td>
             </tr>
         </tbody>
     </table>

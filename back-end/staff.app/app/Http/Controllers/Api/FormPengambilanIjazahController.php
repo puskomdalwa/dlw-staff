@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SyncFormPengambilanIjazahToGoogleSheet;
 use App\Jobs\UploudSuratToDrive;
 use App\Models\FormPengambilanIjazah;
-use App\Services\SuratService;
+use App\Services\PengambilanIjazahSignatureService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +15,10 @@ use Illuminate\Support\Facades\Validator;
 
 class FormPengambilanIjazahController extends Controller
 {
+    public function __construct(private PengambilanIjazahSignatureService $signatureService)
+    {
+    }
+
     /**
      * Menampilkan daftar data formulir pengambilan ijazah.
      */
@@ -22,7 +26,7 @@ class FormPengambilanIjazahController extends Controller
     {
         Log::info('FormPengambilanIjazah index request', $request->all());
 
-        $data = FormPengambilanIjazah::query();
+        $data = FormPengambilanIjazah::with('signatures');
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -42,11 +46,22 @@ class FormPengambilanIjazahController extends Controller
             $request->input('sortType', 'desc')
         );
 
-        $data = $data->paginate($request->input('limit', 10));
+        $paginated = $data->paginate($request->input('limit', 10));
+        $paginated->getCollection()->transform(function (FormPengambilanIjazah $item) {
+            $steps = $this->signatureService->formatTimeline($item, false);
+            $signedCount = collect($steps)->where('status', 'approved')->count();
+            // Clear Eloquent relation cache so JSON serializes the formatted timeline array instead of raw models
+            $item->unsetRelation('signatures');
+            $item->setAttribute('signed_count', $signedCount);
+            $item->setAttribute('total_steps', count($steps));
+            $item->setAttribute('is_completed', $signedCount === count($steps));
+            $item->setAttribute('signatures', $steps);
+            return $item;
+        });
 
         return response()->json([
             'status' => true,
-            'data' => $data,
+            'data' => $paginated,
             'message' => 'Data berhasil diambil'
         ]);
     }
@@ -83,7 +98,10 @@ class FormPengambilanIjazahController extends Controller
 
             $form = FormPengambilanIjazah::create($validated);
 
-            // Generate dan simpan file PDF secara lokal
+            // Inisialisasi 4 step timeline TTD QR
+            $this->signatureService->ensureStepsForForm($form);
+
+            // Generate dan simpan file PDF (Tanpa TTD) secara lokal
             $this->generateAndSavePdf($form->id);
             $form->refresh();
 
@@ -174,15 +192,22 @@ class FormPengambilanIjazahController extends Controller
 
             $validated = $validator->validated();
             $form->update($validated);
+            $this->signatureService->ensureStepsForForm($form);
 
-            // Re-generate file PDF
+            // Re-generate file PDF (Tanpa TTD)
             $this->generateAndSavePdf($form->id);
             $form->refresh();
 
-            // Re-upload ke Google Drive: folder BAAK -> Form Pengambilan Ijazah
+            // Re-upload ke Google Drive (Tanpa TTD): folder BAAK -> Form Pengambilan Ijazah
             $nameTable = 'Form Pengambilan Ijazah';
             $prodiName = 'BAAK';
             UploudSuratToDrive::dispatch($form->id, $nameTable, $prodiName, FormPengambilanIjazah::class);
+
+            // Jika seluruh 4/4 TTD QR sudah lengkap, regenerate PDF Ber-TTD & antrekan upload Drive versi Ber-TTD
+            if ($this->signatureService->isCompleted($form)) {
+                $this->signatureService->regenerateSignedPdf($form);
+                $this->signatureService->queueCompleteDriveUpload($form->fresh());
+            }
 
             // Dispatch update sync ke Google Spreadsheet secara langsung
             try {
@@ -231,6 +256,16 @@ class FormPengambilanIjazahController extends Controller
                 }
             }
 
+            if (!empty($form->signed_local_path) && file_exists($form->signed_local_path)) {
+                try {
+                    unlink($form->signed_local_path);
+                } catch (\Throwable $e) {
+                    Log::warning("Gagal hapus file signed lokal {$form->signed_local_path}: " . $e->getMessage());
+                }
+            }
+
+            $this->signatureService->clearOldSignedDriveFile($form, keepLocalFile: true);
+
             $form->delete();
 
             return response()->json([
@@ -250,7 +285,7 @@ class FormPengambilanIjazahController extends Controller
     }
 
     /**
-     * Download / preview file PDF formulir pengambilan ijazah.
+     * Download / preview file PDF formulir pengambilan ijazah (khusus jika seluruh 4/4 TTD QR lengkap).
      */
     public function downloadPdf($id)
     {
@@ -261,23 +296,35 @@ class FormPengambilanIjazahController extends Controller
                 return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
             }
 
+            if (!$this->signatureService->isCompleted($data)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tanda tangan QR belum lengkap (wajib 4/4 terkonfirmasi). Silakan lengkapi di menu Timeline TTD.',
+                ], 422);
+            }
+
             $viewPath = resource_path('views/pdf/form_pengambilan_ijazah.blade.php');
             $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
-            $pdfMtime = (!empty($data->local_path) && file_exists($data->local_path)) ? filemtime($data->local_path) : 0;
+            $pdfMtime = (!empty($data->signed_local_path) && file_exists($data->signed_local_path))
+                ? filemtime($data->signed_local_path)
+                : 0;
+            $latestSignedAt = $data->signatures()->max('signed_at');
+            $latestSignedTs = $latestSignedAt ? strtotime((string) $latestSignedAt) : 0;
+            $latestUpdatedAt = $data->signatures()->max('updated_at');
+            $latestUpdatedTs = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
 
-            // Generate ulang jika file belum ada atau jika template blade telah diedit
-            if (empty($data->local_path) || !file_exists($data->local_path) || $viewMtime > $pdfMtime) {
-                $this->generateAndSavePdf($data->id);
+            if (empty($data->signed_local_path) || !file_exists($data->signed_local_path) || $viewMtime > $pdfMtime || $latestSignedTs > $pdfMtime || $latestUpdatedTs > $pdfMtime) {
+                $this->signatureService->regenerateSignedPdf($data);
                 $data->refresh();
             }
 
-            if (empty($data->local_path) || !file_exists($data->local_path)) {
-                return response()->json(['status' => false, 'message' => 'File PDF tidak ditemukan di server'], 404);
+            if (empty($data->signed_local_path) || !file_exists($data->signed_local_path)) {
+                return response()->json(['status' => false, 'message' => 'File PDF bertanda tangan tidak ditemukan di server'], 404);
             }
 
-            $fileName = basename($data->local_path);
+            $fileName = basename($data->signed_local_path);
 
-            return response()->file($data->local_path, [
+            return response()->file($data->signed_local_path, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
@@ -288,7 +335,7 @@ class FormPengambilanIjazahController extends Controller
     }
 
     /**
-     * Generate file PDF dari blade template dan simpan ke folder server.
+     * Generate file PDF (Tanpa TTD QR) dari blade template dan simpan ke local_path server.
      */
     public static function generateAndSavePdf($id)
     {
@@ -298,38 +345,7 @@ class FormPengambilanIjazahController extends Controller
             return null;
         }
 
-        // Kop Surat Base64
-        $kopPath = base_path('../public_html/img/kop.jpg');
-        $kopBase64 = SuratService::getBase64Image($kopPath);
-
-        // Format tanggal sidang
-        $tanggalSidangFormatted = !empty($data->tanggal_sidang)
-            ? SuratService::formatTanggalIndonesian($data->tanggal_sidang)
-            : '';
-
-        // Format judul skripsi jika bahasa Arab (seperti di Surat Tugas dan Surat Penelitian)
-        $rawJudul = trim($data->judul_skripsi ?? '');
-        $cleanJudul = trim($rawJudul, '"\' ');
-        $hasArabic = preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{FB50}-\x{FDFF}\x{FE70}-\x{FEFF}]/u', $cleanJudul);
-        if ($hasArabic && class_exists('\ArPHP\I18N\Arabic')) {
-            $arabic = new \ArPHP\I18N\Arabic();
-            $cleanJudul = preg_replace('/\s+/u', ' ', $cleanJudul);
-            $glyphs = $arabic->utf8Glyphs($cleanJudul, 65);
-            $formattedJudul = ($cleanJudul !== $rawJudul) ? '"' . $glyphs . '"' : $glyphs;
-        } else {
-            $formattedJudul = $rawJudul;
-        }
-
-        $pdfData = [
-            'nim'              => $data->nim,
-            'nama_mhs'         => $data->nama_mhs,
-            'prodi'            => $data->prodi,
-            'dosen_pembimbing' => $data->dosen_pembimbing,
-            'judul_skripsi'    => $formattedJudul,
-            'tanggal_sidang'   => $tanggalSidangFormatted,
-            'no_hp'            => $data->no_hp,
-            'kopBase64'        => $kopBase64,
-        ];
+        $pdfData = app(PengambilanIjazahSignatureService::class)->buildPdfData($data, false);
 
         // Hapus file lama jika ada sebelum generate yang baru
         if (!empty($data->local_path) && file_exists($data->local_path)) {

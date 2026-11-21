@@ -32,9 +32,9 @@ return new class extends Migration
         ];
 
         foreach ($tables as $tableName) {
-            if (Schema::hasTable($tableName)) {
+            if (Schema::hasTable($tableName) && !Schema::hasColumn($tableName, 'petanda_tangan')) {
                 Schema::table($tableName, function (Blueprint $table) {
-                    $table->enum('petanda_tangan', ['ya', 'tidak'])->default('tidak');
+                    $table->enum('petanda_tangan', ['ya', 'tidak', 'stempel'])->default('tidak');
                 });
             }
         }

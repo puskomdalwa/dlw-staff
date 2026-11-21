@@ -179,8 +179,14 @@
             <td width="55%"></td>
             <td width="45%" style="text-align:center;">
                 Pasuruan, {{ $tanggal_surat }}<br>
-                Ketua Program Studi,<br>
-                <br><br><br>
+                {{ $kaprodi_title ?? ('Ketua Program Studi ' . ($prodi ?? '')) }},<br>
+                @if(!empty($qr_kaprodi))
+                    <div style="margin: 8px 0;">
+                        <img src="{{ $qr_kaprodi }}" style="width: 82px; height: 82px;" alt="QR Kaprodi">
+                    </div>
+                @else
+                    <br><br><br>
+                @endif
                 ( {{ $kaprodi_nama }} )
             </td>
         </tr>
@@ -267,8 +273,14 @@
             <td width="55%"></td>
             <td width="45%" style="text-align:center;">
                 Bangil, {{ $tanggal_surat }}<br>
-                Kepala Biro Administrasi Keuangan,<br>
-                <br><br><br>
+                {{ $skak_title ?? 'Kepala Biro Administrasi Keuangan' }},<br>
+                @if(!empty($qr_baku))
+                    <div style="margin: 8px 0;">
+                        <img src="{{ $qr_baku }}" style="width: 82px; height: 82px;" alt="QR BAKU">
+                    </div>
+                @else
+                    <br><br><br>
+                @endif
                 {{ $skak_nama }}
             </td>
         </tr>
@@ -353,8 +365,14 @@
             <td width="55%"></td>
             <td width="45%" style="text-align:center;">
                 Bangil, {{ $tanggal_surat }}<br>
-                Ketua TASMA, KKN & PPL<br>
-                <br><br><br>
+                {{ $sktkp_title ?? 'Ketua TASMA, KKN & PPL' }}<br>
+                @if(!empty($qr_kkn))
+                    <div style="margin: 8px 0;">
+                        <img src="{{ $qr_kkn }}" style="width: 82px; height: 82px;" alt="QR KKN">
+                    </div>
+                @else
+                    <br><br><br>
+                @endif
                 {{ $sktkp_nama }}
             </td>
         </tr>
@@ -437,8 +455,14 @@
             <td width="55%"></td>
             <td width="45%" style="text-align:center;">
                 Bangil, {{ $tanggal_surat }}<br>
-                Wakil Rektor I,<br>
-                <br><br><br>
+                {{ $skukd_title ?? 'Wakil Rektor I' }},<br>
+                @if(!empty($qr_idaroh_syuun))
+                    <div style="margin: 8px 0;">
+                        <img src="{{ $qr_idaroh_syuun }}" style="width: 82px; height: 82px;" alt="QR Wakil Rektor I">
+                    </div>
+                @else
+                    <br><br><br>
+                @endif
                 {{ $skukd_nama }}
             </td>
         </tr>
@@ -524,11 +548,17 @@
             <td width="50%"></td>
             <td width="50%" style="text-align:center;">
                 Bangil, {{ $tanggal_surat }}<br>
-                Ketua Qismul Aman<br>
-                <br><br><br>
+                {{ $skqa_title ?? 'Ketua Qismul Aman' }}<br>
+                @if(!empty($qr_keamanan))
+                    <div style="margin: 8px 0;">
+                        <img src="{{ $qr_keamanan }}" style="width: 82px; height: 82px;" alt="QR Qismul Aman">
+                    </div>
+                @else
+                    <br><br><br>
+                @endif
                 @php
     $finalKepala = !empty($ketua) ? $ketua : (!empty($skqa_nama) ? $skqa_nama : null);
-    $finalNidn   = !empty($nidn) ? $nidn : null;
+    $finalNidn   = !empty($nidn) ? $nidn : (!empty($skqa_nidn) ? $skqa_nidn : null);
     if (empty($finalKepala) || empty($finalNidn)) {
         $fallback = \App\Services\SuratService::resolveSigner('SKQA', [
             'ketua' => $finalKepala,

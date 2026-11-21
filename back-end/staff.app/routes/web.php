@@ -9,6 +9,8 @@ Route::get('/', function () {
 
 
 Route::get('/testing', [\App\Http\Controllers\TestingController::class, 'index']);
+Route::get('/verify/sk6/{token}', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'verifyPage']);
+Route::get('/verify/form-pengambilan-ijazah/{token}', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'verifyPage']);
 
 Route::get('/login', function () {
     return response()->json([

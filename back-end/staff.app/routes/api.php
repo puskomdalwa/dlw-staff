@@ -316,12 +316,32 @@ Route::put('/setting-jabatan/{id}', [\App\Http\Controllers\Api\SettingJabatanCon
 Route::delete('/setting-jabatan/{id}', [\App\Http\Controllers\Api\SettingJabatanController::class, 'destroy'])->middleware('auth:sanctum');
 
 // SK6 Routes
+Route::get('/sk6/integration-config', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'integrationConfig'])->middleware('auth:sanctum');
+Route::post('/sk6/integration-config/regenerate', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'regenerateApiKey'])->middleware('auth:sanctum');
+Route::get('/sk6/signer-defaults', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'getSignerDefaults'])->middleware('auth:sanctum');
+Route::post('/sk6/signer-defaults', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'updateSignerDefaults'])->middleware('auth:sanctum');
 Route::get('/sk6', [\App\Http\Controllers\Api\Sk6Controller::class, 'index'])->middleware('auth:sanctum');
 Route::get('/sk6/{id}', [\App\Http\Controllers\Api\Sk6Controller::class, 'show'])->middleware('auth:sanctum');
 Route::post('/sk6', [\App\Http\Controllers\Api\Sk6Controller::class, 'store'])->middleware('auth:sanctum');
 Route::put('/sk6/{id}', [\App\Http\Controllers\Api\Sk6Controller::class, 'update'])->middleware('auth:sanctum');
 Route::delete('/sk6/{id}', [\App\Http\Controllers\Api\Sk6Controller::class, 'destroy'])->middleware('auth:sanctum');
 Route::get('/sk6/download-pdf/{id}', [\App\Http\Controllers\Api\Sk6Controller::class, 'downloadPdf'])->middleware('auth:sanctum');
+Route::get('/sk6/{id}/signatures', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'timeline'])->middleware('auth:sanctum');
+Route::post('/sk6/{id}/signatures/{stepKey}/confirm', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'confirm'])->middleware('auth:sanctum');
+Route::post('/sk6/{id}/signatures/{stepKey}/revoke', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'revoke'])->middleware('auth:sanctum');
+
+// SK6 QR Verification (Public)
+Route::get('/sk6/verify/{token}', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'verifyJson']);
+
+// SK6 External Website Integration API (API Key Auth)
+Route::prefix('external/sk6')->middleware('sk6.apikey')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'externalIndex']);
+    Route::get('/by-nim/{nim}', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'externalShowByNim']);
+    Route::post('/by-nim/{nim}/sign', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'externalSignByNim']);
+    Route::get('/{id}', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'externalShow']);
+    Route::post('/{id}/sign', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'externalSign']);
+    Route::post('/{id}/revoke', [\App\Http\Controllers\Api\Sk6SignatureController::class, 'externalRevoke']);
+});
 
 // File Manager Routes
 Route::get('/file-manager/list', [\App\Http\Controllers\Api\FileManagerController::class, 'index'])->middleware('auth:sanctum');
@@ -347,14 +367,34 @@ Route::delete('/pengumuman-akademik/{id}', [\App\Http\Controllers\Api\Pengumuman
 Route::get('/pengumuman-akademik/download-pdf/{id}', [\App\Http\Controllers\Api\PengumumanAkademikController::class, 'downloadPdf'])->middleware('auth:sanctum');
 
 // Form Pengambilan Ijazah Routes (Admin)
+Route::get('/form-pengambilan-ijazah/integration-config', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'integrationConfig'])->middleware('auth:sanctum');
+Route::post('/form-pengambilan-ijazah/integration-config/regenerate', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'regenerateApiKey'])->middleware('auth:sanctum');
+Route::get('/form-pengambilan-ijazah/signer-defaults', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'getSignerDefaults'])->middleware('auth:sanctum');
+Route::post('/form-pengambilan-ijazah/signer-defaults', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'updateSignerDefaults'])->middleware('auth:sanctum');
 Route::get('/form-pengambilan-ijazah', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'index'])->middleware('auth:sanctum');
 Route::get('/form-pengambilan-ijazah/public-setting', [\App\Http\Controllers\Api\PublicFormPengambilanIjazahController::class, 'getAdminSetting'])->middleware('auth:sanctum');
 Route::post('/form-pengambilan-ijazah/public-setting', [\App\Http\Controllers\Api\PublicFormPengambilanIjazahController::class, 'updateAdminSetting'])->middleware('auth:sanctum');
+Route::get('/form-pengambilan-ijazah/download-pdf/{id}', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'downloadPdf'])->middleware('auth:sanctum');
+Route::get('/form-pengambilan-ijazah/{id}/signatures', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'timeline'])->middleware('auth:sanctum');
+Route::post('/form-pengambilan-ijazah/{id}/signatures/{stepKey}/confirm', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'confirm'])->middleware('auth:sanctum');
+Route::post('/form-pengambilan-ijazah/{id}/signatures/{stepKey}/revoke', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'revoke'])->middleware('auth:sanctum');
 Route::get('/form-pengambilan-ijazah/{id}', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'show'])->middleware('auth:sanctum');
 Route::post('/form-pengambilan-ijazah', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'store'])->middleware('auth:sanctum');
 Route::put('/form-pengambilan-ijazah/{id}', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'update'])->middleware('auth:sanctum');
 Route::delete('/form-pengambilan-ijazah/{id}', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'destroy'])->middleware('auth:sanctum');
-Route::get('/form-pengambilan-ijazah/download-pdf/{id}', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'downloadPdf'])->middleware('auth:sanctum');
+
+// Form Pengambilan Ijazah QR Verification (Public)
+Route::get('/form-pengambilan-ijazah/verify/{token}', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'verifyJson']);
+
+// Form Pengambilan Ijazah External Website Integration API (API Key Auth)
+Route::prefix('external/form-pengambilan-ijazah')->middleware('pengambilan_ijazah.apikey')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'externalIndex']);
+    Route::get('/by-nim/{nim}', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'externalShowByNim']);
+    Route::post('/by-nim/{nim}/sign', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'externalSignByNim']);
+    Route::get('/{id}', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'externalShow']);
+    Route::post('/{id}/sign', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'externalSign']);
+    Route::post('/{id}/revoke', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'externalRevoke']);
+});
 
 // Form Pengambilan Ijazah Routes (Public Tanpa Login)
 Route::prefix('public/form-pengambilan-ijazah')->group(function () {

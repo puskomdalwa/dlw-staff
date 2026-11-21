@@ -14,12 +14,13 @@ return new class extends Migration
         Schema::create('surat_tugas', function (Blueprint $table) {
             $table->id();
             $table->string('nomor');
-            $table->string('pebimbing1');
-            $table->string('alamat_pebimbing1');
-            $table->string('tugas_pebimbing1');
-            $table->string('pebimbing2');
-            $table->string('alamat_pebimbing2');
-            $table->string('tugas_pebimbing2');
+            $table->string('pembimbing1');
+            $table->string('alamat_pembimbing1');
+            $table->string('tugas_pembimbing1');
+            $table->text('tugasnya')->nullable();
+            $table->string('pembimbing2')->nullable();
+            $table->string('alamat_pembimbing2')->nullable();
+            $table->string('tugas_pembimbing2')->nullable();
             $table->string('nama_mhs');
             $table->string('nim_nik');
             $table->text('judul_skripsi');

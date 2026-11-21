@@ -19,6 +19,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->loadMigrationsFrom([
+            database_path('migrations/ijazah'),
+            database_path('migrations/update1'),
+            database_path('migrations/update-sk6'),
+            database_path('migrations/update-pengambilan-ijazah'),
+        ]);
+
         try {
             \Illuminate\Support\Facades\Storage::extend('google', function ($app, $config) {
                 $options = [

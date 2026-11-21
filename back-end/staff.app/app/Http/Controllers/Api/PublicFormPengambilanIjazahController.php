@@ -331,7 +331,10 @@ class PublicFormPengambilanIjazahController extends Controller
             // Simpan data formulir
             $form = FormPengambilanIjazah::create($validated);
 
-            // Generate file PDF lokal ke public_html/pdf/BAAK/Form Pengambilan Ijazah/
+            // Inisialisasi 4 step timeline TTD QR
+            app(\App\Services\PengambilanIjazahSignatureService::class)->ensureStepsForForm($form);
+
+            // Generate file PDF lokal (Tanpa TTD) ke public_html/pdf/BAAK/Form Pengambilan Ijazah/
             FormPengambilanIjazahController::generateAndSavePdf($form->id);
             $form->refresh();
 

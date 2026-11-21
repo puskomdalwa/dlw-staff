@@ -14,6 +14,7 @@ return new class extends Migration
         if (Schema::hasTable('pengajuan_judul') && !Schema::hasColumn('pengajuan_judul', 'status_sidang')) {
             Schema::table('pengajuan_judul', function (Blueprint $table) {
                 $table->enum('status_sidang', ['sudah', 'belum'])
+                    ->nullable()
                     ->default('belum')
                     ->after('petanda_tangan');
             });

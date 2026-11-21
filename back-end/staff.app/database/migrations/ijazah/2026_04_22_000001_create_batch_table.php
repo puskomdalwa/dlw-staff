@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('batch', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_batch', 255);
-            $table->date('tanggal_import');
+            $table->string('nama_batch', 255)->nullable();
+            $table->date('tanggal_import')->nullable();
             $table->timestamps();
         });
     }

@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('nama', 255);
             $table->string('nim', 255);
-            $table->bigInteger('nik');
-            $table->date('tgl_lahir');
+            $table->string('nik', 255)->nullable();
+            $table->string('tgl_lahir', 255)->nullable();
             $table->string('nilai_akreditasi', 255);
             $table->string('nomor_sk_ban_pt', 255);
             $table->string('nomor_ijazah_nasional', 255);

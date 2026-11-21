@@ -13,6 +13,7 @@ use App\Models\JenisSurat;
 use App\Models\LogSurat;
 use App\Models\NoSurat;
 use App\Models\Prodi;
+use App\Services\Sk6SignatureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -27,8 +28,12 @@ class Sk6Controller extends Controller
     public function index(Request $request)
     {
         $data = SuratKeterangan6::with([
-            'prodi',
-            'skLulusMk'
+            'prodi.tandaTangan',
+            'skLulusMk',
+            'skAdminKeuangan',
+            'skTasmaKknPpl',
+            'skUjianKomprehensifDiniyah',
+            'skQismulAman',
         ]);
 
         if ($request->filled("prodi_id")) {
@@ -63,14 +68,24 @@ class Sk6Controller extends Controller
         );
 
         $data = $data->paginate($request->input('limit', 10));
+        $signatureService = app(Sk6SignatureService::class);
 
-        $formattedData = $data->getCollection()->map(function ($item) {
+        $formattedData = $data->getCollection()->map(function ($item) use ($signatureService) {
+            $steps = $signatureService->formatTimeline($item, false);
+            $signedCount = collect($steps)->where('status', 'approved')->count();
+
             return [
                 'id' => $item->id,
                 'nama_lengkap' => $item->nama_mhs,
                 'nim' => $item->nim,
+                'prodi_nama' => $item->prodi?->nama,
                 'drive_link' => $item->drive_link,
+                'signed_drive_link' => $item->signed_drive_link,
                 'created_at' => $item->created_at,
+                'signed_count' => $signedCount,
+                'total_steps' => count($steps),
+                'is_completed' => $signedCount === count($steps),
+                'signatures' => $steps,
             ];
         });
 
@@ -333,10 +348,10 @@ class Sk6Controller extends Controller
             $sk6->save();
 
             DB::commit();
-            // Re-fetch record and details to build the new PDF
+            // Re-fetch record and details to build the new unsigned PDF (Tanpa TTD)
             $sklmkRefetched = $this->getSklmkDetail($sk6->surat_keterangan_lulus_mata_kuliah_id);
             if ($sklmkRefetched) {
-                $pdfData = $this->buildSk6PdfData($sk6, $sklmkRefetched);
+                $pdfData = $this->buildSk6PdfData($sk6, $sklmkRefetched, false);
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.sk_6', $pdfData)->setPaper('a4', 'portrait');
 
                 $fileName = 'SK6_' . $sklmkRefetched->nim . '_' . uniqid() . '.pdf';
@@ -351,9 +366,9 @@ class Sk6Controller extends Controller
                 $pdf->save($path);
 
                 $sk6->update(['local_path' => $path]);
+                app(Sk6SignatureService::class)->ensureStepsForSk6($sk6);
 
-                $nameTable = 'Surat Keterangan 6';
-                \App\Jobs\UploudSuratToDrive::dispatch($sk6->id, $nameTable, $sklmkRefetched->nama_prodi, SuratKeterangan6::class);
+                \App\Jobs\UploudSuratToDrive::dispatch($sk6->id, 'Surat Keterangan 6', $sklmkRefetched->nama_prodi, SuratKeterangan6::class);
 
                 $this->dispatchGoogleDriveJobs($sk6, $sklmkRefetched->nama_prodi, $path);
             }
@@ -755,10 +770,10 @@ class Sk6Controller extends Controller
 
             DB::commit();
 
-            // Re-fetch record and details to build the new PDF
+            // Re-fetch record and details to build the new unsigned PDF (Tanpa TTD)
             $sklmkRefetched = $this->getSklmkDetail($sk6->surat_keterangan_lulus_mata_kuliah_id);
             if ($sklmkRefetched) {
-                $pdfData = $this->buildSk6PdfData($sk6, $sklmkRefetched);
+                $pdfData = $this->buildSk6PdfData($sk6, $sklmkRefetched, false);
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.sk_6', $pdfData)->setPaper('a4', 'portrait');
 
                 $fileName = 'SK6_' . $sklmkRefetched->nim . '_' . uniqid() . '.pdf';
@@ -773,9 +788,14 @@ class Sk6Controller extends Controller
                 $pdf->save($path);
 
                 $sk6->update(['local_path' => $path]);
+                \App\Jobs\UploudSuratToDrive::dispatch($sk6->id, 'Surat Keterangan 6', $sklmkRefetched->nama_prodi, SuratKeterangan6::class);
 
-                $nameTable = 'Surat Keterangan 6';
-                \App\Jobs\UploudSuratToDrive::dispatch($sk6->id, $nameTable, $sklmkRefetched->nama_prodi, SuratKeterangan6::class);
+                $signatureService = app(Sk6SignatureService::class);
+                $signatureService->ensureStepsForSk6($sk6);
+                if ($signatureService->isCompleted($sk6)) {
+                    $signatureService->regenerateSignedSk6Pdf($sk6);
+                    $signatureService->queueCompleteDriveUpload($sk6);
+                }
 
                 $this->dispatchGoogleDriveJobs($sk6, $sklmkRefetched->nama_prodi, $path);
             }
@@ -849,13 +869,24 @@ class Sk6Controller extends Controller
                 return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
             }
 
-            if (empty($data->local_path) || !file_exists($data->local_path)) {
+            $signatureService = app(Sk6SignatureService::class);
+            if (!$signatureService->isCompleted($data)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'PDF SK 6 baru dapat diunduh setelah seluruh 5 tanda tangan QR lengkap.'
+                ], 422);
+            }
+
+            $signatureService->regenerateSignedSk6Pdf($data);
+            $data->refresh();
+
+            if (empty($data->signed_local_path) || !file_exists($data->signed_local_path)) {
                 return response()->json(['status' => false, 'message' => 'File PDF tidak ditemukan di server'], 404);
             }
 
-            $fileName = basename($data->local_path);
+            $fileName = basename($data->signed_local_path);
 
-            return response()->file($data->local_path, [
+            return response()->file($data->signed_local_path, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
@@ -904,91 +935,9 @@ class Sk6Controller extends Controller
         return ['nama' => '', 'ttd' => '', 'nama_jabatan' => ''];
     }
 
-    private function buildSk6PdfData($sk6, $sklmk)
+    private function buildSk6PdfData($sk6, $sklmk, bool $includeQr = true)
     {
-        $skak = $sk6->skAdminKeuangan;
-        $sktkp = $sk6->skTasmaKknPpl;
-        $skukd = $sk6->skUjianKomprehensifDiniyah;
-        $skqa = $sk6->skQismulAman;
-
-        $kopPath = base_path('../public_html/img/kop.jpg');
-        $kopBase64 = \App\Services\SuratService::getBase64Image($kopPath);
-
-        $kaprodiTtdBase64 = '';
-        if ($sklmk->kaprodi_gambar) {
-            $kaprodiTtdBase64 = \App\Services\SuratService::getBase64Image(base_path('../public_html/' . $sklmk->kaprodi_gambar));
-        } elseif ($sklmk->kaprodi_tdd) {
-            $kaprodiTtdBase64 = $sklmk->kaprodi_tdd;
-        }
-
-        $ttdSkak = $this->getTtdJabatan('kepala_biro_keuangan');
-        $ttdSktkp = $this->getTtdJabatan('ketua_tasma');
-
-        if ($skukd && $skukd->tanda_tangan_id) {
-            $tandaTangan = \App\Models\TandaTangan::find($skukd->tanda_tangan_id);
-            $ttdBase64 = '';
-            if ($tandaTangan) {
-                if ($tandaTangan->gambar) {
-                    $ttdBase64 = \App\Services\SuratService::getBase64Image(base_path('../public_html/' . $tandaTangan->gambar));
-                } elseif ($tandaTangan->tdd) {
-                    $ttdBase64 = $tandaTangan->tdd;
-                }
-                $ttdSkukd = [
-                    'nama' => $tandaTangan->nama,
-                    'ttd' => $ttdBase64,
-                ];
-            } else {
-                $ttdSkukd = $this->getTtdJabatan('ketua_komprehensif');
-            }
-        } else {
-            $ttdSkukd = $this->getTtdJabatan('ketua_komprehensif');
-        }
-
-        $ttdSkqa = $this->getTtdJabatan('ketua_qismul_aman');
-
-        $stempelPath = base_path('../public_html/img/stempel.png');
-        $stempelBase64 = \App\Services\SuratService::getBase64Image($stempelPath);
-
-        return [
-            'nomor_surat_sklmk' => $sklmk->nomor_surat,
-            'nomor_surat_skak' => $skak ? $skak->nomor_surat : '-',
-            'nomor_surat_sktkp' => $sktkp ? $sktkp->nomor_surat : '-',
-            'nomor_surat_skukd' => $skukd ? $skukd->nomor_surat : '-',
-            'nomor_surat_skqa' => $skqa ? $skqa->nomor_surat : '-',
-
-            'nama' => $sklmk->nama_lengkap,
-            'tempat_lahir' => $sklmk->tempat_lahir,
-            'tanggal_lahir' => \App\Services\SuratService::formatTanggalIndonesian($sklmk->tanggal_lahir),
-            'nim' => $sklmk->nim,
-            'fakultas' => $sklmk->fakultas,
-            'prodi' => $sklmk->nama_prodi,
-            'alamat' => $sklmk->alamat_rumah,
-            'kelas' => $sklmk->kelas_pondok,
-            'alias_prodi' => $sklmk->alias_prodi,
-            'nama_kepala_prodi' => $sklmk->nama_kepala_prodi,
-            'tanggal_surat' => \App\Services\SuratService::formatTanggalIndonesian($sklmk->tanggal),
-            'kopBase64' => $kopBase64,
-            'tanggal_awal' => $skqa && $skqa->tanggal_berlaku_dari ? \App\Services\SuratService::formatTanggalIndonesian($skqa->tanggal_berlaku_dari) : '-',
-            'tanggal_akhir' => $skqa && $skqa->tanggal_berlaku_sampai ? \App\Services\SuratService::formatTanggalIndonesian($skqa->tanggal_berlaku_sampai) : '-',
-
-            // Signatures
-            'kaprodi_nama' => $sklmk->kaprodi_nama ?: $sklmk->nama_kepala_prodi,
-            'kaprodi_ttd' => $kaprodiTtdBase64,
-
-            'skak_nama' => $ttdSkak['nama'] ?: 'Dr. Musleh Harry, SH, M.Hum',
-            'skak_ttd' => $ttdSkak['ttd'],
-
-            'sktkp_nama' => $ttdSktkp['nama'] ?: 'Achmad Djuaini, M,Pd',
-            'sktkp_ttd' => $ttdSktkp['ttd'],
-
-            'skukd_nama' => $ttdSkukd['nama'] ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.',
-            'skukd_ttd' => $ttdSkukd['ttd'],
-
-            'skqa_nama' => $ttdSkqa['nama'] ?: 'Ust. Fathul Munif',
-            'skqa_ttd' => $ttdSkqa['ttd'],
-            'stempel' => $stempelBase64,
-            'petanda_tangan' => 'tidak',
-        ];
+        return app(Sk6SignatureService::class)->buildSk6PdfData($sk6, $sklmk, $includeQr);
     }
 
     private function dispatchGoogleDriveJobs($sk6, $namaProdi, $localPath)

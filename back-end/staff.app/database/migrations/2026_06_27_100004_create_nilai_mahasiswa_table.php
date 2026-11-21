@@ -23,8 +23,8 @@ return new class extends Migration
             $table->string('nama_mk', 255)->nullable();
             $table->integer('sks_mk')->nullable();
             $table->integer('smt_mk')->nullable();
-            $table->double('nilai_akhir', 5, 2)->nullable();
-            $table->double('nilai_bobot', 5, 2)->nullable();
+            $table->double('nilai_akhir')->nullable();
+            $table->double('nilai_bobot')->nullable();
             $table->string('nilai_huruf', 5)->nullable();
             $table->enum('transkrip', ['Y', 'T'])->nullable();
             $table->timestamps();

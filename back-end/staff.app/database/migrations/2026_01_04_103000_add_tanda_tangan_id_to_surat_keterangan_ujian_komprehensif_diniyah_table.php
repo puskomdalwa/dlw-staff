@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('surat_keterangan_ujian_komprehensif_diniyah', function (Blueprint $table) {
             if (!Schema::hasColumn('surat_keterangan_ujian_komprehensif_diniyah', 'tanda_tangan_id')) {
-                $table->integer('tanda_tangan_id')->nullable()->after('koor_komprehensif');
+                $table->unsignedBigInteger('tanda_tangan_id')->nullable()->after('koor_komprehensif');
             }
         });
     }

@@ -23,7 +23,8 @@ class UploudSuratToDrive implements ShouldQueue
         public string $nameTable,
         public ?string $prodiName,
         public string $modelClass,
-        public ?string $customFolderPath = null
+        public ?string $customFolderPath = null,
+        public bool $isSignedSk6 = false
     ) {
         $this->prodiName = $prodiName ?? 'UMUM';
     }
@@ -97,8 +98,8 @@ class UploudSuratToDrive implements ShouldQueue
         }
 
         try {
-            $filePath = $file->local_path;
-            if (!file_exists($filePath)) {
+            $filePath = $this->isSignedSk6 ? $file->signed_local_path : $file->local_path;
+            if (empty($filePath) || !file_exists($filePath)) {
                 Log::error("Local file does not exist at: {$filePath}");
                 return;
             }
@@ -144,21 +145,33 @@ class UploudSuratToDrive implements ShouldQueue
             // Upload file menggunakan Gdrive
             $result = GoogleDrive::uploadFile($folderPath, $filePath, $fileName);
 
-            $updateData = [
-                // 'drive_path' => $result['path'],
-                'status' => 'uploaded'
-            ];
+            if ($this->isSignedSk6) {
+                $signedUpdate = [];
+                if (!empty($result['file_id'])) {
+                    GoogleDrive::setPublicPermission($result['file_id']);
+                    $signedUpdate['signed_drive_file_id'] = $result['file_id'];
+                    $signedUpdate['signed_drive_link'] = "https://drive.google.com/file/d/{$result['file_id']}/view";
+                }
+                if (!empty($signedUpdate)) {
+                    $file->update($signedUpdate);
+                }
+            } else {
+                $updateData = [
+                    // 'drive_path' => $result['path'],
+                    'status' => 'uploaded'
+                ];
 
-            // Jika file ID berhasil didapat, simpan juga drive_file_id dan drive_link
-            if (!empty($result['file_id'])) {
-                // Set permission agar file bisa diakses oleh siapa saja dengan link
-                GoogleDrive::setPublicPermission($result['file_id']);
+                // Jika file ID berhasil didapat, simpan juga drive_file_id dan drive_link
+                if (!empty($result['file_id'])) {
+                    // Set permission agar file bisa diakses oleh siapa saja dengan link
+                    GoogleDrive::setPublicPermission($result['file_id']);
 
-                $updateData['drive_file_id'] = $result['file_id'];
-                $updateData['drive_link'] = "https://drive.google.com/file/d/{$result['file_id']}/view";
+                    $updateData['drive_file_id'] = $result['file_id'];
+                    $updateData['drive_link'] = "https://drive.google.com/file/d/{$result['file_id']}/view";
+                }
+
+                $file->update($updateData);
             }
-
-            $file->update($updateData);
 
             Log::info("Successfully uploaded {$fileName} to Drive at path: {$result['path']}" .
                 (!empty($result['file_id']) ? ", file_id: {$result['file_id']}" : ""));

@@ -24,6 +24,9 @@ class FormPengambilanIjazah extends Model
         'drive_file_id',
         'local_path',
         'drive_link',
+        'signed_local_path',
+        'signed_drive_file_id',
+        'signed_drive_link',
         'status',
         'user_id',
     ];
@@ -31,5 +34,11 @@ class FormPengambilanIjazah extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function signatures()
+    {
+        return $this->hasMany(PengambilanIjazahSignature::class, 'form_pengambilan_ijazah_id')
+            ->orderBy('step_order');
     }
 }

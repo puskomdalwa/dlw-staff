@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('surat_keterangan_aktif_mahasiswa', function (Blueprint $table) {
             $table->id();
-            $table->string('nomor_surat');
+            $table->string('nomor_surat')->nullable();
             $table->integer('prodi_id')->nullable();
             $table->string('nama_lengkap');
             $table->string('nim')->nullable();

@@ -13,6 +13,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+        $middleware->alias([
+            'sk6.apikey' => \App\Http\Middleware\VerifyExternalApiKey::class . ':sk6_external',
+            'pengambilan_ijazah.apikey' => \App\Http\Middleware\VerifyExternalApiKey::class . ':pengambilan_ijazah_external',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

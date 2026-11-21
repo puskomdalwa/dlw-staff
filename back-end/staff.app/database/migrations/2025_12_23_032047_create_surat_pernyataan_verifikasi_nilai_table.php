@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('surat_pernyataan_verifikasi_nilai', function (Blueprint $table) {
             $table->id();
             $table->string('nomor');
-            $table->string('niy');
+            $table->string('niy')->nullable();
             $table->string('jabatan');
             $table->string('nama_mahasiswa');
             $table->string('nim');
