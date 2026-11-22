@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncDaftarSidangHkiToGoogleSheet;
 use App\Jobs\UploudSuratToDrive;
 use App\Models\DaftarSidangSkripsi;
 use App\Models\DokumenSkripsi;
@@ -568,16 +569,14 @@ class PublicFormDaftarSidangSkripsiController extends Controller
 
             try {
                 if (GoogleSheetSidangHkiService::isHki($daftarSidang)) {
-                    $synced = $isUpdate
-                        ? GoogleSheetSidangHkiService::updateRow($daftarSidang, $oldNim)
-                        : GoogleSheetSidangHkiService::appendRow($daftarSidang);
-
-                    if (!$synced) {
-                        Log::warning("Sync Google Sheet Sidang HKI (public submit) mengembalikan false untuk ID {$daftarSidang->id}, NIM {$daftarSidang->nim}");
-                    }
+                    SyncDaftarSidangHkiToGoogleSheet::dispatch(
+                        $daftarSidang->id,
+                        $isUpdate ? 'update' : 'store',
+                        $oldNim
+                    );
                 }
             } catch (\Throwable $sheetEx) {
-                Log::warning('Sync Google Sheet Sidang HKI (public submit) gagal: ' . $sheetEx->getMessage());
+                Log::warning('Dispatch sync Google Sheet Sidang HKI (public submit) gagal: ' . $sheetEx->getMessage());
             }
 
             return response()->json([

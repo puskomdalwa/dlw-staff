@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncDaftarSidangHkiToGoogleSheet;
 use App\Jobs\UploudSuratToDrive;
 use App\Models\DaftarSidangSkripsi;
 use App\Models\DokumenSkripsi;
@@ -150,13 +151,10 @@ class DaftarSidangSkripsiController extends Controller
 
             try {
                 if (GoogleSheetSidangHkiService::isHki($daftarSidang)) {
-                    $synced = GoogleSheetSidangHkiService::appendRow($daftarSidang);
-                    if (!$synced) {
-                        Log::warning("Sync Google Sheet Sidang HKI (store) mengembalikan false untuk ID {$daftarSidang->id}, NIM {$daftarSidang->nim}");
-                    }
+                    SyncDaftarSidangHkiToGoogleSheet::dispatch($daftarSidang->id, 'store');
                 }
             } catch (\Throwable $sheetEx) {
-                Log::warning('Sync Google Sheet Sidang HKI (store) gagal: ' . $sheetEx->getMessage());
+                Log::warning('Dispatch sync Google Sheet Sidang HKI (store) gagal: ' . $sheetEx->getMessage());
             }
 
             return response()->json([
@@ -282,13 +280,10 @@ class DaftarSidangSkripsiController extends Controller
 
             try {
                 if (GoogleSheetSidangHkiService::isHki($daftarSidang)) {
-                    $synced = GoogleSheetSidangHkiService::updateRow($daftarSidang, $oldNim);
-                    if (!$synced) {
-                        Log::warning("Sync Google Sheet Sidang HKI (update) mengembalikan false untuk ID {$daftarSidang->id}, NIM {$daftarSidang->nim}");
-                    }
+                    SyncDaftarSidangHkiToGoogleSheet::dispatch($daftarSidang->id, 'update', $oldNim);
                 }
             } catch (\Throwable $sheetEx) {
-                Log::warning('Sync Google Sheet Sidang HKI (update) gagal: ' . $sheetEx->getMessage());
+                Log::warning('Dispatch sync Google Sheet Sidang HKI (update) gagal: ' . $sheetEx->getMessage());
             }
 
             return response()->json([
@@ -412,14 +407,10 @@ class DaftarSidangSkripsiController extends Controller
 
             try {
                 if (GoogleSheetSidangHkiService::isHki($daftarSidang)) {
-                    $daftarSidang->load('dokumen');
-                    $synced = GoogleSheetSidangHkiService::updateRow($daftarSidang);
-                    if (!$synced) {
-                        Log::warning("Sync Google Sheet Sidang HKI (uploadDokumen) mengembalikan false untuk ID {$daftarSidang->id}, NIM {$daftarSidang->nim}");
-                    }
+                    SyncDaftarSidangHkiToGoogleSheet::dispatch($daftarSidang->id, 'update');
                 }
             } catch (\Throwable $sheetEx) {
-                Log::warning('Sync Google Sheet Sidang HKI (uploadDokumen) gagal: ' . $sheetEx->getMessage());
+                Log::warning('Dispatch sync Google Sheet Sidang HKI (uploadDokumen) gagal: ' . $sheetEx->getMessage());
             }
 
             return response()->json([
