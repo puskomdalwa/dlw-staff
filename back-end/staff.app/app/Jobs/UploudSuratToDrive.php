@@ -171,6 +171,21 @@ class UploudSuratToDrive implements ShouldQueue
                 }
 
                 $file->update($updateData);
+
+                if (
+                    ($this->modelClass === \App\Models\DokumenSkripsi::class || $file instanceof \App\Models\DokumenSkripsi)
+                    && !empty($updateData['drive_link'])
+                ) {
+                    $daftarSidang = $file->daftarSidangSkripsi ?? \App\Models\DaftarSidangSkripsi::find($file->daftar_sidang_skripsi_id);
+                    if ($daftarSidang && \App\Services\GoogleSheetSidangHkiService::isHki($daftarSidang)) {
+                        try {
+                            $daftarSidang->load('dokumen');
+                            \App\Services\GoogleSheetSidangHkiService::updateRow($daftarSidang);
+                        } catch (\Throwable $sheetEx) {
+                            Log::warning('Sync Google Sheet Sidang HKI setelah upload Drive gagal: ' . $sheetEx->getMessage());
+                        }
+                    }
+                }
             }
 
             Log::info("Successfully uploaded {$fileName} to Drive at path: {$result['path']}" .

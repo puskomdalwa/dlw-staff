@@ -10,6 +10,7 @@ use App\Models\PengajuanJudul;
 use App\Models\Prodi;
 use App\Models\PublicFormSetting;
 use App\Services\GoogleDrive;
+use App\Services\GoogleSheetSidangHkiService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -479,47 +480,32 @@ class PublicFormDaftarSidangSkripsiController extends Controller
 
             $validated = $validator->validated();
 
-            // Match prodi_id jika belum terisi
-            if (empty($validated['prodi_id'])) {
-                $prodiModel = Prodi::where('nama', $validated['prodi'])
-                    ->orWhere('alias', $validated['prodi'])
-                    ->first();
-                if ($prodiModel) {
-                    $validated['prodi_id'] = $prodiModel->id;
-                }
-            }
+            // Match prodi_id jika belum terisi atau bernilai 0
+            $validated['prodi_id'] = GoogleSheetSidangHkiService::resolveProdiId(
+                $validated['prodi'],
+                $validated['prodi_id'] ?? null
+            );
 
             $pembimbing1 = $validated['pembimbing1'] ?? ($validated['dospem1'] ?? null);
             $pembimbing2 = $validated['pembimbing2'] ?? ($validated['dospem2'] ?? null);
 
-            $daftarSidang = DaftarSidangSkripsi::create([
-                'nama'           => $validated['nama'],
-                'nim'            => $validated['nim'],
-                'nik'            => $validated['nik'] ?? null,
-                'prodi'          => $validated['prodi'],
-                'prodi_id'       => $validated['prodi_id'] ?? null,
-                'judul_skripsi'  => $validated['judul_skripsi'],
-                'periode_sidang' => $validated['periode_sidang'],
-                'pembimbing1'    => $pembimbing1,
-                'pembimbing2'    => $pembimbing2,
-                'user_id'        => null, // Submit publik tanpa login
-            ]);
             $rawNim = trim($validated['nim']);
             $cleanNim = preg_replace('/[^a-zA-Z0-9_\-]/', '', $rawNim);
+            $alnumNim = preg_replace('/[^a-zA-Z0-9]/', '', $rawNim);
 
-            // Simpan berkas fisik ke: Berkas skripsi/{prodi}/{nim}
-            $this->handleDocumentUploads($request, $daftarSidang);
             // Cek apakah mahasiswa ini sudah pernah mendaftar sebelumnya (edit/resubmit via form publik)
             $existing = DaftarSidangSkripsi::where('nim', $rawNim)
                 ->orWhere('nim', $cleanNim)
-                ->orWhereRaw("REPLACE(REPLACE(REPLACE(nim, '.', ''), '-', ''), ' ', '') = ?", [$cleanNim])
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(nim, '.', ''), '-', ''), ' ', '') = ?", [$alnumNim])
                 ->orderBy('id', 'desc')
                 ->first();
 
-            // Tambah counter submission di setting
-            $setting->increment('total_submissions');
+            $isUpdate = false;
+            $oldNim = null;
+
             if ($existing) {
                 // Update pendaftaran yang sudah ada
+                $isUpdate = true;
                 $oldNama = $existing->nama;
                 $oldNim = $existing->nim;
                 $oldProdi = $existing->prodi;
@@ -550,6 +536,7 @@ class PublicFormDaftarSidangSkripsiController extends Controller
                 // Unggah berkas baru atau pengganti jika ada yang dilampirkan
                 $this->handleDocumentUploads($request, $existing);
 
+                $setting->increment('total_submissions');
                 $daftarSidang = $existing;
                 $messageSuccess = 'Pendaftaran sidang skripsi berhasil diperbarui! Berkas Anda telah disinkronkan.';
             } else {
@@ -567,7 +554,7 @@ class PublicFormDaftarSidangSkripsiController extends Controller
                     'user_id'        => null, // Submit publik tanpa login
                 ]);
 
-                // Simpan berkas fisik ke: public_html/{prodi}/Dokumen Sidang Skripsi/{nim} & Google Drive
+                // Simpan berkas fisik ke: public_html/pdf/{prodi}/Dokumen Sidang Skripsi/{nim} & Google Drive
                 $this->handleDocumentUploads($request, $daftarSidang);
 
                 // Tambah counter submission di setting
@@ -578,6 +565,20 @@ class PublicFormDaftarSidangSkripsiController extends Controller
             DB::commit();
 
             $daftarSidang->load('dokumen');
+
+            try {
+                if (GoogleSheetSidangHkiService::isHki($daftarSidang)) {
+                    $synced = $isUpdate
+                        ? GoogleSheetSidangHkiService::updateRow($daftarSidang, $oldNim)
+                        : GoogleSheetSidangHkiService::appendRow($daftarSidang);
+
+                    if (!$synced) {
+                        Log::warning("Sync Google Sheet Sidang HKI (public submit) mengembalikan false untuk ID {$daftarSidang->id}, NIM {$daftarSidang->nim}");
+                    }
+                }
+            } catch (\Throwable $sheetEx) {
+                Log::warning('Sync Google Sheet Sidang HKI (public submit) gagal: ' . $sheetEx->getMessage());
+            }
 
             return response()->json([
                 'status' => true,
@@ -761,15 +762,6 @@ class PublicFormDaftarSidangSkripsiController extends Controller
             Log::error("Direct upload Google Drive failed for {$fileName}: " . $e->getMessage());
         }
 
-        // Simpan data dokumen ke database
-        $dokumen = DokumenSkripsi::create([
-            'daftar_sidang_skripsi_id' => $daftarSidang->id,
-            'nama_dokumen'             => $namaDokumen,
-            'drive_file_id'            => $driveFileId,
-            'drive_link'               => $driveLink,
-            'local_path'               => $localPath,
-            'status'                   => $status,
-        ]);
         // Simpan data dokumen ke database (update jika sudah ada dokumen dengan nama yang sama, atau create baru)
         $existingDoc = DokumenSkripsi::where('daftar_sidang_skripsi_id', $daftarSidang->id)
             ->where('nama_dokumen', $namaDokumen)

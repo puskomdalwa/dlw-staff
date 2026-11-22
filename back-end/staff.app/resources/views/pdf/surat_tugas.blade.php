@@ -234,11 +234,21 @@
                 </td>
             </tr>
 
+            @php
+                $formattedMasaPenugasan = $masa_penugasan ?? '';
+                if (!empty($formattedMasaPenugasan)) {
+                    try {
+                        $formattedMasaPenugasan = \Carbon\Carbon::parse($formattedMasaPenugasan)->format('d-m-Y');
+                    } catch (\Throwable $e) {
+                        // Biarkan nilai asli jika bukan format tanggal valid
+                    }
+                }
+            @endphp
             <tr>
                 <td>4.</td>
                 <td>Masa penugasan</td>
                 <td>:</td>
-                <td>{{ $masa_penugasan }} s/d selesai</td>
+                <td>{{ $formattedMasaPenugasan }} s/d selesai</td>
             </tr>
             <tr>
                 <td>5.</td>
