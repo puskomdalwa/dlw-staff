@@ -325,4 +325,109 @@ class PengambilanIjazahSignatureTest extends TestCase
             'signer_nidn' => '998877',
         ]);
     }
+
+    public function test_external_api_sequential_filters_and_non_skipping_guard(): void
+    {
+        Queue::fake();
+        $user = $this->createAdminUser();
+
+        $formA = FormPengambilanIjazah::create([
+            'nama_mhs' => 'Mahasiswa A',
+            'nim' => '20229001',
+            'prodi' => 'PBA',
+            'dosen_pembimbing' => 'Dosen A',
+            'judul_skripsi' => 'Judul A',
+            'tanggal_sidang' => '2026-11-20',
+            'status' => 'pending',
+        ]);
+
+        $formB = FormPengambilanIjazah::create([
+            'nama_mhs' => 'Mahasiswa B',
+            'nim' => '20229002',
+            'prodi' => 'PBA',
+            'dosen_pembimbing' => 'Dosen B',
+            'judul_skripsi' => 'Judul B',
+            'tanggal_sidang' => '2026-11-20',
+            'status' => 'pending',
+        ]);
+
+        $apiKey = IntegrationApiKey::getOrCreateForService(
+            'pengambilan_ijazah_external',
+            'Form Pengambilan Ijazah External Integration',
+            'pij_',
+            $user->id
+        )->api_key;
+
+        // Invalid filter value -> 422
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=unknown')
+            ->assertStatus(422);
+
+        // Before keuangan_pondok signs: ready_for_step=baku returns 0 items
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
+
+        // Signing baku with require_previous_approved=true before keuangan_pondok is rejected (422)
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
+                'step_key' => 'baku',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(422);
+
+        // Signing with required_steps=['keuangan_pondok'] is rejected (422)
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
+                'step_key' => 'baak',
+                'required_steps' => ['keuangan_pondok'],
+            ])
+            ->assertStatus(422);
+
+        // Step 1 (keuangan_pondok) signs formA
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
+                'step_key' => 'keuangan_pondok',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(200);
+
+        // Now ready_for_step=baku returns ONLY formA (not formB)
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $formA->id);
+
+        // Explicit approved_steps & pending_steps combination works too
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?approved_steps=keuangan_pondok&pending_steps=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $formA->id);
+
+        // Now BAKU can sign formA with require_previous_approved=true
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
+                'step_key' => 'baku',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.form.signed_count', 2);
+
+        // ready_for_step=baak now returns formA, ready_for_step=baku is empty
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baak')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $formA->id);
+
+        $this->assertNotNull($formB->id);
+    }
 }

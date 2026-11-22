@@ -336,4 +336,104 @@ class Sk6SignatureTest extends TestCase
             'signer_nidn' => '889900',
         ]);
     }
+
+    public function test_external_api_sequential_filters_and_non_skipping_guard(): void
+    {
+        Queue::fake();
+        [$user, $prodi, $sk6A] = $this->seedSk6Scenario();
+
+        // Second SK6 record (legacy/pending, no signatures created yet)
+        $sk6B = SuratKeterangan6::create([
+            'nama_mhs' => 'Budi Santoso',
+            'nim' => '202285290002',
+            'tanggal' => '2026-11-21',
+            'prodi_id' => $prodi->id,
+            'surat_keterangan_lulus_mata_kuliah_id' => $sk6A->surat_keterangan_lulus_mata_kuliah_id,
+            'surat_keterangan_administrasi_keuangan_id' => $sk6A->surat_keterangan_administrasi_keuangan_id,
+            'surat_keterangan_tasma_kkn_ppl_id' => $sk6A->surat_keterangan_tasma_kkn_ppl_id,
+            'surat_keterangan_ujian_komprehensif_diniyah_id' => $sk6A->surat_keterangan_ujian_komprehensif_diniyah_id,
+            'surat_keterangan_qismul_aman_id' => $sk6A->surat_keterangan_qismul_aman_id,
+        ]);
+
+        $apiKey = IntegrationApiKey::getOrCreateDefault($user->id)->api_key;
+
+        // Invalid step filter returns 422
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=invalid_step')
+            ->assertStatus(422);
+
+        // Before kaprodi signs: ready_for_step=baku returns 0 items
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
+
+        // With require_previous_approved=true, signing baku before kaprodi is rejected (422)
+        $this->withHeader('X-API-Key', $apiKey)
+            ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
+                'step_key' => 'baku',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(422);
+
+        // Signing with required_steps=['kaprodi'] is also rejected (422)
+        $this->withHeader('X-API-Key', $apiKey)
+            ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
+                'step_key' => 'kkn',
+                'required_steps' => ['kaprodi'],
+            ])
+            ->assertStatus(422);
+
+        // Kaprodi signs sk6A (step 1) with require_previous_approved=true -> succeeds (no earlier steps)
+        $this->withHeader('X-API-Key', $apiKey)
+            ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
+                'step_key' => 'kaprodi',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(200);
+
+        // Now ready_for_step=baku returns ONLY sk6A (not sk6B)
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6A->id);
+
+        // Equivalent explicit query filters also return ONLY sk6A
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?step_key=baku&step_status=pending&require_previous_approved=1')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6A->id);
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?approved_steps=kaprodi&pending_steps=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6A->id);
+
+        // Now BAKU can sign sk6A with require_previous_approved=true
+        $this->withHeader('X-API-Key', $apiKey)
+            ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
+                'step_key' => 'baku',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.sk6.signed_count', 2);
+
+        // After BAKU signs, ready_for_step=baku is empty and ready_for_step=kkn has sk6A
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=kkn')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6A->id);
+
+        // Clean up unused variable warning
+        $this->assertNotNull($sk6B->id);
+    }
 }

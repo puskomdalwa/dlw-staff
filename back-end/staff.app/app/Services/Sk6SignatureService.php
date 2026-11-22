@@ -395,6 +395,14 @@ class Sk6SignatureService
         }
 
         $steps = $this->ensureStepsForSk6($sk6);
+        SignatureStepFilter::assertPrerequisitesSatisfied(
+            $steps,
+            $stepKey,
+            self::STEP_ORDER,
+            self::SHORT_LABELS,
+            $options
+        );
+
         /** @var Sk6Signature $step */
         $step = $steps->firstWhere('step_key', $stepKey);
 
@@ -442,6 +450,14 @@ class Sk6SignatureService
         }
 
         $steps = $this->ensureStepsForSk6($sk6);
+        SignatureStepFilter::assertPrerequisitesSatisfied(
+            $steps,
+            $stepKey,
+            self::STEP_ORDER,
+            self::SHORT_LABELS,
+            $options
+        );
+
         /** @var Sk6Signature $step */
         $step = $steps->firstWhere('step_key', $stepKey);
 

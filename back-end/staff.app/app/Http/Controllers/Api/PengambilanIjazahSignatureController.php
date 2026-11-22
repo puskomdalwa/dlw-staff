@@ -7,6 +7,7 @@ use App\Models\FormPengambilanIjazah;
 use App\Models\IntegrationApiKey;
 use App\Models\PengambilanIjazahSignature;
 use App\Services\PengambilanIjazahSignatureService;
+use App\Services\SignatureStepFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -292,18 +293,14 @@ class PengambilanIjazahSignatureController extends Controller
                     ->orWhere('prodi', 'like', "%{$search}%");
             });
         }
-        if ($request->filled('step_key') && $request->filled('step_status')) {
-            $stepKey = $request->input('step_key');
-            $stepStatus = $request->input('step_status');
-            if ($stepStatus === 'approved') {
-                $query->whereHas('signatures', function ($q) use ($stepKey) {
-                    $q->where('step_key', $stepKey)->where('status', 'approved');
-                });
-            } elseif ($stepStatus === 'pending') {
-                $query->whereDoesntHave('signatures', function ($q) use ($stepKey) {
-                    $q->where('step_key', $stepKey)->where('status', 'approved');
-                });
-            }
+
+        try {
+            SignatureStepFilter::applyExternalListFilters($query, $request, PengambilanIjazahSignatureService::STEP_ORDER);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         }
 
         $limit = min(max((int) $request->input('limit', 15), 1), 100);
@@ -500,6 +497,9 @@ class PengambilanIjazahSignatureController extends Controller
             'title' => 'nullable|string|max:255',
             'source' => 'nullable|string|max:100',
             'notes' => 'nullable|string|max:1000',
+            'require_previous_approved' => 'sometimes|boolean',
+            'required_steps' => 'sometimes|array',
+            'required_steps.*' => 'string|in:keuangan_pondok,baku,baak,warek_1',
         ]);
 
         if ($validator->fails()) {
@@ -511,13 +511,22 @@ class PengambilanIjazahSignatureController extends Controller
         }
 
         $source = $request->input('source') ?: ('api:' . $request->input('step_key'));
-        $step = $this->signatureService->confirmStep($form, $request->input('step_key'), [
-            'signer_name' => $request->input('signer_name'),
-            'signer_nidn' => $request->input('signer_nidn'),
-            'title' => $request->input('title'),
-            'notes' => $request->input('notes'),
-            'source' => $source,
-        ]);
+        try {
+            $step = $this->signatureService->confirmStep($form, $request->input('step_key'), [
+                'signer_name' => $request->input('signer_name'),
+                'signer_nidn' => $request->input('signer_nidn'),
+                'title' => $request->input('title'),
+                'notes' => $request->input('notes'),
+                'source' => $source,
+                'require_previous_approved' => $request->boolean('require_previous_approved', false),
+                'required_steps' => $request->input('required_steps', []),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
 
         return response()->json([
             'status' => true,

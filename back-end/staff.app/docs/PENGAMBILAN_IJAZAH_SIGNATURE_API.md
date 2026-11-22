@@ -38,6 +38,10 @@ Query params opsional:
 - `prodi` — filter nama prodi
 - `search` — cari nama/NIM/prodi
 - `step_key` + `step_status` (`pending` / `approved`) — filter status step tertentu
+- `ready_for_step` — **(Rekomendasi untuk alur berjenjang)** hanya tampilkan data yang **semua step sebelumnya sudah `approved`** dan step target masih `pending`. Contoh untuk BAKU di Simkeu: `?ready_for_step=baku` (hanya muncul setelah `keuangan_pondok` ACC dan `baku` belum ACC).
+- `require_previous_approved` (`1` / `true`) — digabung dengan `step_key` (misal `?step_key=baku&step_status=pending&require_previous_approved=1`), mewajibkan semua step sebelum `step_key` sudah `approved`.
+- `approved_steps` — daftar `step_key` dipisah koma yang wajib sudah `approved` (misal `?approved_steps=keuangan_pondok` atau `?approved_steps=keuangan_pondok,baku`).
+- `pending_steps` — daftar `step_key` dipisah koma yang wajib masih `pending` (misal `?pending_steps=baku`).
 - `limit` — jumlah per halaman (1..100, default 15)
 
 ### B. Detail Berdasarkan ID / NIM
@@ -51,14 +55,18 @@ Query params opsional:
 Contoh body JSON:
 ```json
 {
-  "step_key": "keuangan_pondok",
-  "signer_name": "Ust. Ahmad",
+  "step_key": "baku",
+  "signer_name": "Dr. Musleh Harry, SH, M.Hum",
   "signer_nidn": "123456",
-  "source": "web_keuangan_pondok",
-  "notes": "Lunas seluruh administrasi pondok"
+  "source": "web_keuangan",
+  "notes": "Lunas seluruh administrasi keuangan",
+  "require_previous_approved": true
 }
 ```
-Parameter wajib: `step_key` (`keuangan_pondok` | `baku` | `baak` | `warek_1`). Field lain opsional.
+Parameter wajib: `step_key` (`keuangan_pondok` | `baku` | `baak` | `warek_1`).
+Field opsional: `signer_name`, `signer_nidn`, `title`, `source`, `notes`, serta:
+- `require_previous_approved` (boolean, default `false`): jika `true`, ditolak (`422`) bila ada step sebelumnya yang masih `pending` (tidak bisa loncat step).
+- `required_steps` (array `step_key`): misal `["keuangan_pondok"]`, ditolak (`422`) bila step syarat tersebut belum `approved`.
 
 ### D. Batalkan Konfirmasi TTD QR (Revoke)
 - `POST /api/external/form-pengambilan-ijazah/{id}/revoke`
@@ -73,7 +81,18 @@ Membatalkan status step menjadi `pending` dan menghapus file PDF Ber-TTD & Drive
 
 ---
 
-## 4. Verifikasi Publik (Tanpa API Key)
+## 4. Contoh Filter Berjenjang (Contoh untuk Simkeu / BAKU)
+
+- List yang siap diproses BAKU (sudah ACC Keuangan Pondok & belum ACC BAKU):
+  `GET /api/external/form-pengambilan-ijazah?ready_for_step=baku`
+- Atau dengan filter eksplisit:
+  `GET /api/external/form-pengambilan-ijazah?approved_steps=keuangan_pondok&pending_steps=baku`
+- Konfirmasi ACC BAKU dengan pengaman agar tidak bisa loncat step (`422` jika `keuangan_pondok` masih `pending`):
+  `POST /api/external/form-pengambilan-ijazah/by-nim/{nim}/sign` dengan body `{"step_key": "baku", "require_previous_approved": true}`
+
+---
+
+## 5. Verifikasi Publik (Tanpa API Key)
 
 - **Halaman Web (hasil scan QR kamera HP)**: `GET /verify/form-pengambilan-ijazah/{token}`
 - **JSON API**: `GET /api/form-pengambilan-ijazah/verify/{token}`

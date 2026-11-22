@@ -282,6 +282,14 @@ class PengambilanIjazahSignatureService
         }
 
         $steps = $this->ensureStepsForForm($form);
+        SignatureStepFilter::assertPrerequisitesSatisfied(
+            $steps,
+            $stepKey,
+            self::STEP_ORDER,
+            self::SHORT_LABELS,
+            $options
+        );
+
         /** @var PengambilanIjazahSignature $step */
         $step = $steps->firstWhere('step_key', $stepKey);
 
@@ -329,6 +337,14 @@ class PengambilanIjazahSignatureService
         }
 
         $steps = $this->ensureStepsForForm($form);
+        SignatureStepFilter::assertPrerequisitesSatisfied(
+            $steps,
+            $stepKey,
+            self::STEP_ORDER,
+            self::SHORT_LABELS,
+            $options
+        );
+
         /** @var PengambilanIjazahSignature $step */
         $step = $steps->firstWhere('step_key', $stepKey);
 

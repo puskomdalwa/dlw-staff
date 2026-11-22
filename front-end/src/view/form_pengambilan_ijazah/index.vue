@@ -1433,6 +1433,10 @@ export default defineComponent({
                         List Form Pengambilan Ijazah (query opsional: <code>?nim=...</code>,
                         <code>?search=...</code>,
                         <code>?step_key=keuangan_pondok&amp;step_status=pending</code>,
+                        <code>?ready_for_step=baku</code>,
+                        <code>?approved_steps=keuangan_pondok</code>,
+                        <code>?pending_steps=baku</code>,
+                        <code>?require_previous_approved=1</code>,
                         <code>?limit=15</code>)
                       </td>
                     </tr>
@@ -1465,15 +1469,36 @@ export default defineComponent({
                 </table>
               </div>
 
-              <h6 class="fw-semibold mb-2">3. Contoh Request Konfirmasi TTD (Misal dari Web Keuangan Pondok)</h6>
+              <h6 class="fw-semibold mb-2">3. Filter Berjenjang &amp; Anti-Loncat Step (Opsional via Call API)</h6>
+              <div class="alert alert-info fs-12 mb-3">
+                <div class="fw-semibold mb-1">Agar data baru muncul &amp; bisa di-ACC setelah step sebelumnya disetujui:</div>
+                <ul class="mb-0 ps-3">
+                  <li>
+                    <strong>Filter list siap proses (contoh BAKU setelah Keu. Pondok ACC):</strong>
+                    <code>GET {{ apiConfig.base_url }}?ready_for_step=baku</code>
+                    (sama dengan <code>?step_key=baku&amp;step_status=pending&amp;require_previous_approved=1</code>)
+                  </li>
+                  <li>
+                    <strong>Filter syarat step tertentu:</strong>
+                    <code>?approved_steps=keuangan_pondok</code> atau <code>?approved_steps=keuangan_pondok,baku&amp;pending_steps=baak</code>
+                  </li>
+                  <li>
+                    <strong>Kunci anti-loncat saat konfirmasi (POST /sign):</strong>
+                    tambahkan <code>"require_previous_approved": true</code> (atau <code>"required_steps": ["keuangan_pondok"]</code>) di JSON body; server akan menolak (<code>422</code>) jika step sebelumnya masih <code>pending</code>.
+                  </li>
+                </ul>
+              </div>
+
+              <h6 class="fw-semibold mb-2">4. Contoh Request Konfirmasi TTD (Misal dari Web Keuangan / BAKU)</h6>
               <pre class="bg-dark text-light p-3 rounded fs-12 mb-0" style="white-space: pre-wrap;">curl -X POST "{{ apiConfig.base_url }}/by-nim/202285290001/sign" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: {{ maskedApiKey(apiConfig.api_key) }}" \
   -d '{
-    "step_key": "keuangan_pondok",
-    "signer_name": "Ust. Ahmad",
-    "source": "web-keuangan-pondok",
-    "notes": "Bebas tanggungan keuangan pondok"
+    "step_key": "baku",
+    "signer_name": "Dr. Musleh Harry, SH, M.Hum",
+    "source": "web-keuangan",
+    "notes": "Bebas tanggungan keuangan jamiah",
+    "require_previous_approved": true
   }'</pre>
             </template>
           </div>
