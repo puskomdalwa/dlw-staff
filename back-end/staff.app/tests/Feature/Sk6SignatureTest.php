@@ -433,6 +433,17 @@ class Sk6SignatureTest extends TestCase
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $sk6A->id);
 
+        // Internal UI revoke and external API revoke both work cleanly
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/sk6/{$sk6A->id}/signatures/baku/revoke")
+            ->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 1);
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->postJson("/api/external/sk6/{$sk6A->id}/revoke", ['step_key' => 'kaprodi'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 0);
+
         // Clean up unused variable warning
         $this->assertNotNull($sk6B->id);
     }

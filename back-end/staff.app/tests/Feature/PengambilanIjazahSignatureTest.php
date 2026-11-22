@@ -428,6 +428,17 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $formA->id);
 
+        // Internal UI revoke and external API revoke both work cleanly
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/baku/revoke")
+            ->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 1);
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/revoke", ['step_key' => 'keuangan_pondok'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 0);
+
         $this->assertNotNull($formB->id);
     }
 }
