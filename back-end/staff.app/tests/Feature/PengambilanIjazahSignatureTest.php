@@ -514,4 +514,117 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->getJson('/api/external/form-pengambilan-ijazah?jenis_kelamin=salah')
             ->assertStatus(422);
     }
+
+    public function test_fix_gender_batch_cursor_resolves_local_records_without_timeout(): void
+    {
+        $userPutra = $this->createAdminUser();
+        $prodi = \App\Models\Prodi::create([
+            'kode' => '88204',
+            'alias' => 'PBA',
+            'nama' => 'Pendidikan Bahasa Arab',
+            'aktif' => 'Y',
+        ]);
+
+        // Seed local SKLMK record with formatted NIM (dots) and gender 'P'
+        (new \App\Models\SuratKeteranganLulusMataKuliah())->forceFill([
+            'nomor_surat' => 'SKLM-FIX-01',
+            'prodi_id' => $prodi->id,
+            'nama_lengkap' => 'Siti Fatimah',
+            'tempat_lahir' => 'Bangil',
+            'tanggal_lahir' => '2002-01-01',
+            'nim' => '2017.85.01.1723',
+            'prodi_mahasiswa' => 'PBA',
+            'alamat_rumah' => 'Bangil',
+            'kelas_pondok' => 'VI A',
+            'tanggal' => '2026-11-21',
+            'user_id' => $userPutra->id,
+            'jenis_kelamin' => 'P',
+            'status' => 'pending',
+        ])->save();
+
+        // Row 1: matches SKLMK even without dots in NIM
+        $f1 = FormPengambilanIjazah::create([
+            'nama_mhs' => 'Siti Fatimah',
+            'nim' => '201785011723',
+            'prodi' => 'PBA',
+            'dosen_pembimbing' => 'Dosen A',
+            'judul_skripsi' => 'Judul 1',
+            'tanggal_sidang' => '2026-11-20',
+            'status' => 'pending',
+        ]);
+
+        // Row 2: already has jenis_kelamin -> should be skipped by batch query
+        $f2 = FormPengambilanIjazah::create([
+            'nama_mhs' => 'Sudah Ada',
+            'nim' => '20229999',
+            'prodi' => 'PBA',
+            'jenis_kelamin' => 'L',
+            'dosen_pembimbing' => 'Dosen A',
+            'judul_skripsi' => 'Judul 2',
+            'tanggal_sidang' => '2026-11-20',
+            'status' => 'pending',
+        ]);
+
+        // Row 3: fallback to user_id gender ('L')
+        $f3 = FormPengambilanIjazah::create([
+            'nama_mhs' => 'Dari User',
+            'nim' => '99990001',
+            'prodi' => 'PBA',
+            'dosen_pembimbing' => 'Dosen A',
+            'judul_skripsi' => 'Judul 3',
+            'tanggal_sidang' => '2026-11-20',
+            'user_id' => $userPutra->id,
+            'status' => 'pending',
+        ]);
+
+        // Row 4: completely unknown NIM & no user_id -> unresolved
+        $f4 = FormPengambilanIjazah::create([
+            'nama_mhs' => 'Tidak Diketahui',
+            'nim' => '00000000',
+            'prodi' => 'PBA',
+            'dosen_pembimbing' => 'Dosen A',
+            'judul_skripsi' => 'Judul 4',
+            'tanggal_sidang' => '2026-11-20',
+            'status' => 'pending',
+        ]);
+
+        // Batch 1 (batch_size=2, include_simkeu=false for deterministic offline test)
+        $batch1 = $this->actingAs($userPutra, 'sanctum')
+            ->postJson('/api/form-pengambilan-ijazah/fix-gender-batch', [
+                'after_id' => 0,
+                'batch_size' => 2,
+                'include_simkeu' => false,
+            ]);
+
+        $batch1->assertStatus(200)
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('data.total_target', 3)
+            ->assertJsonPath('data.processed_in_batch', 2)
+            ->assertJsonPath('data.updated_count', 2)
+            ->assertJsonPath('data.skipped_not_found', 0)
+            ->assertJsonPath('data.has_more', true);
+
+        $nextAfterId = $batch1->json('data.next_after_id');
+        $this->assertSame($f3->id, $nextAfterId);
+
+        // Batch 2 (remaining 1 row: $f4)
+        $batch2 = $this->actingAs($userPutra, 'sanctum')
+            ->postJson('/api/form-pengambilan-ijazah/fix-gender-batch', [
+                'after_id' => $nextAfterId,
+                'batch_size' => 2,
+                'include_simkeu' => false,
+            ]);
+
+        $batch2->assertStatus(200)
+            ->assertJsonPath('data.processed_in_batch', 1)
+            ->assertJsonPath('data.updated_count', 0)
+            ->assertJsonPath('data.skipped_not_found', 1)
+            ->assertJsonPath('data.has_more', false)
+            ->assertJsonPath('data.unresolved_samples.0.id', $f4->id);
+
+        $this->assertSame('P', $f1->fresh()->jenis_kelamin);
+        $this->assertSame('L', $f2->fresh()->jenis_kelamin);
+        $this->assertSame('L', $f3->fresh()->jenis_kelamin);
+        $this->assertNull($f4->fresh()->jenis_kelamin);
+    }
 }

@@ -70,6 +70,9 @@ export default defineComponent({
     const applyDefaultsToExisting = ref(true);
     const applyDefaultsScope = ref<"all" | "pending">("all");
 
+    // Batch Fix Putra/Putri State
+    const fixingGender = ref(false);
+
     // Setting Form Publik State
     const settingModalRef = ref<HTMLElement | null>(null);
     let settingModal: Modal | null = null;
@@ -482,6 +485,138 @@ export default defineComponent({
       }
     }
 
+    async function fixPutraPutriBatch() {
+      const confirm = await Swal.fire({
+        title: "Fix Data Putra / Putri (Batch)?",
+        html: "Sistem akan mengisi kolom <b>Putra / Putri (L/P)</b> yang masih kosong secara bertahap (<b>5 data per batch</b>) dari data mahasiswa lokal &amp; Simkeu agar aman dari timeout.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#6c5ffc",
+        confirmButtonText: "Mulai Proses Batch",
+        cancelButtonText: "Batal",
+      });
+      if (!confirm.isConfirmed) return;
+
+      fixingGender.value = true;
+      let afterId = 0;
+      let hasMore = true;
+      let totalTarget = 0;
+      let processedTotal = 0;
+      let updatedTotal = 0;
+      let notFoundTotal = 0;
+      const unresolvedList: any[] = [];
+
+      const renderProgressHtml = () => {
+        const pct = totalTarget > 0 ? Math.min(100, Math.round((processedTotal / totalTarget) * 100)) : 0;
+        return `
+          <div class="text-start fs-13">
+            <div class="progress mb-2" style="height: 18px;">
+              <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: ${pct}%">${pct}%</div>
+            </div>
+            <div class="d-flex justify-content-between text-muted mb-1">
+              <span>Diproses: <b>${processedTotal}</b>${totalTarget > 0 ? ` / <b>${totalTarget}</b>` : ""}</span>
+              <span>Berhasil diisi: <b class="text-success">${updatedTotal}</b></span>
+              <span>Belum ketemu: <b class="text-warning">${notFoundTotal}</b></span>
+            </div>
+            <small class="text-muted">Mohon tunggu, proses berjalan per batch kecil agar anti-timeout...</small>
+          </div>
+        `;
+      };
+
+      Swal.fire({
+        title: "Memproses Putra / Putri...",
+        html: renderProgressHtml(),
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      try {
+        while (hasMore) {
+          const res = await apiPost("/form-pengambilan-ijazah/fix-gender-batch", {
+            after_id: afterId,
+            batch_size: 5,
+            include_simkeu: true,
+          });
+
+          if (!res.success || !res.data?.status) {
+            throw new Error(
+              res.data?.message ||
+                (res.error as any)?.response?.data?.message ||
+                "Gagal memproses batch Putra/Putri"
+            );
+          }
+
+          const d = res.data.data;
+          if (totalTarget === 0 && typeof d.total_target === "number") {
+            totalTarget = d.total_target;
+          }
+
+          processedTotal += Number(d.processed_in_batch || 0);
+          updatedTotal += Number(d.updated_count || 0);
+          notFoundTotal += Number(d.skipped_not_found || 0);
+          if (Array.isArray(d.unresolved_samples)) {
+            unresolvedList.push(...d.unresolved_samples);
+          }
+
+          afterId = Number(d.next_after_id || 0);
+          hasMore = Boolean(d.has_more) && Number(d.processed_in_batch || 0) > 0;
+
+          const container = Swal.getHtmlContainer();
+          if (container) {
+            container.innerHTML = renderProgressHtml();
+          }
+        }
+
+        await getData();
+
+        const unresolvedPreview = unresolvedList
+          .slice(0, 8)
+          .map((u) => `<li><code>${u.nim || "-"}</code> — ${u.nama_mhs || "-"}</li>`)
+          .join("");
+        const extraUnresolved =
+          unresolvedList.length > 8
+            ? `<li class="text-muted">...dan ${unresolvedList.length - 8} data lainnya</li>`
+            : "";
+
+        await Swal.fire({
+          icon: updatedTotal > 0 ? "success" : "info",
+          title: "Proses Batch Selesai",
+          html: `
+            <div class="text-start fs-13">
+              <ul class="mb-2">
+                <li>Total diperiksa: <b>${processedTotal}</b></li>
+                <li>Berhasil diisi otomatis: <b class="text-success">${updatedTotal}</b></li>
+                <li>Tidak ditemukan datanya: <b class="text-warning">${notFoundTotal}</b></li>
+              </ul>
+              ${
+                unresolvedList.length > 0
+                  ? `<div class="alert alert-warning p-2 fs-12 mb-0"><div class="fw-semibold mb-1">Data berikut perlu dipilih manual via tombol Edit:</div><ul class="mb-0 ps-3">${unresolvedPreview}${extraUnresolved}</ul></div>`
+                  : ""
+              }
+            </div>
+          `,
+        });
+      } catch (err: any) {
+        await getData();
+        await Swal.fire({
+          icon: "error",
+          title: "Proses Batch Terhenti",
+          html: `
+            <div class="text-start fs-13">
+              <p class="mb-2">${err?.message || "Terjadi kesalahan saat memproses batch."}</p>
+              <small class="text-muted">Batch sebelumnya sudah tersimpan (${updatedTotal} data terisi). Anda dapat menjalankan ulang untuk melanjutkan sisanya.</small>
+            </div>
+          `,
+        });
+      } finally {
+        fixingGender.value = false;
+      }
+    }
+
     async function remove(params: any) {
       Swal.fire({
         title: "Apakah anda yakin?",
@@ -591,6 +726,8 @@ export default defineComponent({
       applyDefaultsScope,
       openSignerDefaultsModal,
       saveSignerDefaults,
+      fixingGender,
+      fixPutraPutriBatch,
     };
   },
 });
@@ -651,6 +788,19 @@ export default defineComponent({
               @click="openSignerDefaultsModal"
             >
               <i class="ri-user-settings-line align-middle me-1"></i> Default Penandatangan
+            </button>
+            <button
+              class="btn btn-secondary-light btn-wave shadow-sm"
+              :disabled="fixingGender"
+              @click="fixPutraPutriBatch"
+              title="Isi otomatis kolom Putra/Putri yang masih kosong secara bertahap (batch anti-timeout)"
+            >
+              <span
+                v-if="fixingGender"
+                class="spinner-border spinner-border-sm align-middle me-1"
+              ></span>
+              <i v-else class="ri-user-follow-line align-middle me-1"></i>
+              Fix Putra / Putri
             </button>
           </div>
           <div class="col-12 col-md-5 ms-auto d-flex gap-2">

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SyncFormPengambilanIjazahToGoogleSheet;
 use App\Jobs\UploudSuratToDrive;
 use App\Models\FormPengambilanIjazah;
+use App\Services\PengambilanIjazahGenderFixService;
 use App\Services\PengambilanIjazahSignatureService;
 use App\Services\SignatureStepFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -360,6 +361,42 @@ class FormPengambilanIjazahController extends Controller
             Log::error('Download PDF error: ' . $th->getMessage());
             return response()->json(['status' => false, 'message' => 'Gagal download PDF: ' . $th->getMessage()], 500);
         }
+    }
+
+    /**
+     * Batch backfill kolom jenis_kelamin (Putra/Putri) yang masih kosong secara bertahap (anti-timeout).
+     */
+    public function fixGenderBatch(Request $request, PengambilanIjazahGenderFixService $genderFixService)
+    {
+        @set_time_limit(120);
+
+        $validator = Validator::make($request->all(), [
+            'after_id' => 'nullable|integer|min:0',
+            'batch_size' => 'nullable|integer|min:1|max:25',
+            'include_simkeu' => 'nullable|boolean',
+            'overwrite' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Validasi parameter batch gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $result = $genderFixService->processBatch(
+            (int) $request->input('after_id', 0),
+            (int) $request->input('batch_size', 5),
+            $request->boolean('include_simkeu', true),
+            $request->boolean('overwrite', false)
+        );
+
+        return response()->json([
+            'status' => true,
+            'data' => $result,
+            'message' => 'Batch perbaikan Putra/Putri selesai diproses',
+        ]);
     }
 
     /**

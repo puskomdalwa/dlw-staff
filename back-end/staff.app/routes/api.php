@@ -372,6 +372,7 @@ Route::post('/form-pengambilan-ijazah/integration-config/regenerate', [\App\Http
 Route::get('/form-pengambilan-ijazah/signer-defaults', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'getSignerDefaults'])->middleware('auth:sanctum');
 Route::post('/form-pengambilan-ijazah/signer-defaults', [\App\Http\Controllers\Api\PengambilanIjazahSignatureController::class, 'updateSignerDefaults'])->middleware('auth:sanctum');
 Route::get('/form-pengambilan-ijazah', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'index'])->middleware('auth:sanctum');
+Route::post('/form-pengambilan-ijazah/fix-gender-batch', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'fixGenderBatch'])->middleware('auth:sanctum');
 Route::get('/form-pengambilan-ijazah/public-setting', [\App\Http\Controllers\Api\PublicFormPengambilanIjazahController::class, 'getAdminSetting'])->middleware('auth:sanctum');
 Route::post('/form-pengambilan-ijazah/public-setting', [\App\Http\Controllers\Api\PublicFormPengambilanIjazahController::class, 'updateAdminSetting'])->middleware('auth:sanctum');
 Route::get('/form-pengambilan-ijazah/download-pdf/{id}', [\App\Http\Controllers\Api\FormPengambilanIjazahController::class, 'downloadPdf'])->middleware('auth:sanctum');
