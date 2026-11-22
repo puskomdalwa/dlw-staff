@@ -36,6 +36,7 @@ Terdapat 4 tahap tanda tangan QR:
 Query params opsional:
 - `nim` — filter NIM persis
 - `prodi` — filter nama prodi
+- `jenis_kelamin` — filter Putra / Putri (`L` atau `putra` untuk Putra, `P` atau `putri` untuk Putri). *Alias: `putra_putri` / `gender`.*
 - `search` — cari nama/NIM/prodi
 - `step_key` + `step_status` (`pending` / `approved`) — filter status step tertentu
 - `ready_for_step` — **(Rekomendasi untuk alur berjenjang)** hanya tampilkan data yang **semua step sebelumnya sudah `approved`** dan step target masih `pending`. Contoh untuk BAKU di Simkeu: `?ready_for_step=baku` (hanya muncul setelah `keuangan_pondok` ACC dan `baku` belum ACC).

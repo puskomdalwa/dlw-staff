@@ -70,6 +70,11 @@
                 <div class="col-sm-4 text-muted">Program Studi:</div>
                 <div class="col-sm-8 fw-semibold text-dark">{{ submittedData.prodi }}</div>
 
+                <div v-if="submittedData.jenis_kelamin" class="col-sm-4 text-muted">Putra / Putri:</div>
+                <div v-if="submittedData.jenis_kelamin" class="col-sm-8 fw-semibold text-dark">
+                  {{ submittedData.jenis_kelamin === 'P' ? 'Putri (P)' : 'Putra (L)' }}
+                </div>
+
                 <div class="col-sm-4 text-muted">Tanggal Sidang:</div>
                 <div class="col-sm-8 fw-semibold text-dark">{{ submittedData.tanggal_sidang }}</div>
 
@@ -212,7 +217,7 @@
                       required
                     />
                   </div>
-                  <div class="col-12">
+                  <div class="col-md-6">
                     <label class="form-label fw-semibold text-dark fs-13">Program Studi</label>
                     <input
                       type="text"
@@ -221,6 +226,16 @@
                       placeholder="Program Studi"
                       required
                     />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold text-dark fs-13">
+                      Putra / Putri (Jenis Kelamin) <span class="text-danger">*</span>
+                    </label>
+                    <select class="form-select" v-model="form.jenis_kelamin" required>
+                      <option value="">-- Pilih Putra / Putri --</option>
+                      <option value="L">Putra (L)</option>
+                      <option value="P">Putri (P)</option>
+                    </select>
                   </div>
                 </div>
 
@@ -382,6 +397,7 @@ export default defineComponent({
       nama_mhs: '',
       nim: '',
       prodi: '',
+      jenis_kelamin: '',
       dosen_pembimbing: '',
       judul_skripsi: '',
       tanggal_sidang: '',
@@ -455,6 +471,12 @@ export default defineComponent({
       form.value.nama_mhs = mhs.nama || '';
       form.value.nim = mhs.nim || '';
       form.value.prodi = mhs.prodi || '';
+      const rawJk = String(mhs.jenis_kelamin ?? mhs.jk ?? '').trim().toUpperCase();
+      if (rawJk === 'P' || rawJk.startsWith('PUTRI') || rawJk.startsWith('PEREMPUAN')) {
+        form.value.jenis_kelamin = 'P';
+      } else if (rawJk === 'L' || rawJk.startsWith('PUTRA') || rawJk.startsWith('LAKI')) {
+        form.value.jenis_kelamin = 'L';
+      }
       searchMhsQuery.value = `${mhs.nama} (${mhs.nim})`;
       showMhsDropdown.value = false;
     }
@@ -589,6 +611,7 @@ export default defineComponent({
         nama_mhs: '',
         nim: '',
         prodi: '',
+        jenis_kelamin: '',
         dosen_pembimbing: '',
         judul_skripsi: '',
         tanggal_sidang: '',

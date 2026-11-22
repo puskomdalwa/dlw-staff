@@ -274,6 +274,13 @@ class Sk6SignatureController extends Controller
         }
 
         try {
+            $gender = SignatureStepFilter::resolveGenderFilter($request);
+            if ($gender !== null) {
+                $query->whereHas('skLulusMk', function ($q) use ($gender) {
+                    $q->where('jenis_kelamin', $gender);
+                });
+            }
+
             SignatureStepFilter::applyExternalListFilters($query, $request, Sk6SignatureService::STEP_ORDER);
         } catch (\InvalidArgumentException $e) {
             return response()->json([
@@ -544,6 +551,7 @@ class Sk6SignatureController extends Controller
             'nim' => $sk6->nim,
             'prodi_id' => $sk6->prodi_id,
             'prodi_nama' => $sk6->prodi?->nama,
+            'jenis_kelamin' => $sk6->skLulusMk?->jenis_kelamin,
             'tanggal' => $sk6->tanggal,
             'nomor_surat' => [
                 'sklmk' => $sk6->skLulusMk?->nomor_surat,

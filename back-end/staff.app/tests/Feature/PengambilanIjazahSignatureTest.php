@@ -441,4 +441,77 @@ class PengambilanIjazahSignatureTest extends TestCase
 
         $this->assertNotNull($formB->id);
     }
+
+    public function test_jenis_kelamin_storage_and_putra_putri_filters(): void
+    {
+        Queue::fake();
+        $user = $this->createAdminUser();
+
+        // Store Putra (L) via admin endpoint
+        $resPutra = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/form-pengambilan-ijazah', [
+                'nama_mhs' => 'Ahmad Putra',
+                'nim' => '20229101',
+                'prodi' => 'PBA',
+                'jenis_kelamin' => 'L',
+                'dosen_pembimbing' => 'Dosen A',
+                'judul_skripsi' => 'Judul Putra',
+                'tanggal_sidang' => '2026-11-20',
+            ]);
+        $resPutra->assertStatus(201)->assertJsonPath('data.jenis_kelamin', 'L');
+        $formPutra = FormPengambilanIjazah::findOrFail($resPutra->json('data.id'));
+        if (!empty($formPutra->local_path)) {
+            $this->cleanupPaths[] = $formPutra->local_path;
+        }
+
+        // Store Putri (P) via admin endpoint
+        $resPutri = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/form-pengambilan-ijazah', [
+                'nama_mhs' => 'Fatimah Putri',
+                'nim' => '20229102',
+                'prodi' => 'PBA',
+                'jenis_kelamin' => 'P',
+                'dosen_pembimbing' => 'Dosen B',
+                'judul_skripsi' => 'Judul Putri',
+                'tanggal_sidang' => '2026-11-20',
+            ]);
+        $resPutri->assertStatus(201)->assertJsonPath('data.jenis_kelamin', 'P');
+        $formPutri = FormPengambilanIjazah::findOrFail($resPutri->json('data.id'));
+        if (!empty($formPutri->local_path)) {
+            $this->cleanupPaths[] = $formPutri->local_path;
+        }
+
+        // Internal index filters by explicit ?jenis_kelamin=P
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/form-pengambilan-ijazah?jenis_kelamin=P')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.data.0.id', $formPutri->id);
+
+        // External API filters by ?jenis_kelamin=L / ?jenis_kelamin=putri and rejects invalid value
+        $apiKey = IntegrationApiKey::getOrCreateForService(
+            'pengambilan_ijazah_external',
+            'Form Pengambilan Ijazah External Integration',
+            'pij_',
+            $user->id
+        )->api_key;
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?jenis_kelamin=putra')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $formPutra->id)
+            ->assertJsonPath('data.items.0.jenis_kelamin', 'L');
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?jenis_kelamin=P')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $formPutri->id)
+            ->assertJsonPath('data.items.0.jenis_kelamin', 'P');
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?jenis_kelamin=salah')
+            ->assertStatus(422);
+    }
 }

@@ -7,6 +7,7 @@ use App\Jobs\SyncFormPengambilanIjazahToGoogleSheet;
 use App\Jobs\UploudSuratToDrive;
 use App\Models\FormPengambilanIjazah;
 use App\Services\PengambilanIjazahSignatureService;
+use App\Services\SignatureStepFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,27 @@ class FormPengambilanIjazahController extends Controller
         Log::info('FormPengambilanIjazah index request', $request->all());
 
         $data = FormPengambilanIjazah::with('signatures');
+
+        try {
+            $explicitGender = SignatureStepFilter::resolveGenderFilter($request);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        if ($explicitGender !== null) {
+            $data->where('jenis_kelamin', $explicitGender);
+        } else {
+            $authGender = Auth::user()?->jenis_kelamin;
+            if (in_array($authGender, ['L', 'P'], true)) {
+                $data->where(function ($q) use ($authGender) {
+                    $q->where('jenis_kelamin', $authGender)
+                        ->orWhereNull('jenis_kelamin');
+                });
+            }
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -78,6 +100,7 @@ class FormPengambilanIjazahController extends Controller
                 'nama_mhs'          => 'required|string|max:255',
                 'nim'               => 'nullable|string|max:50',
                 'prodi'             => 'required|string|max:255',
+                'jenis_kelamin'     => 'nullable|in:L,P',
                 'dosen_pembimbing'  => 'required|string|max:255',
                 'judul_skripsi'     => 'required|string',
                 'tanggal_sidang'    => 'required|date',
@@ -93,6 +116,7 @@ class FormPengambilanIjazahController extends Controller
             }
 
             $validated = $validator->validated();
+            $validated['jenis_kelamin'] = $validated['jenis_kelamin'] ?? Auth::user()?->jenis_kelamin;
             $validated['user_id'] = Auth::id();
             $validated['status'] = 'pending';
 
@@ -167,6 +191,7 @@ class FormPengambilanIjazahController extends Controller
                 'nama_mhs'          => 'required|string|max:255',
                 'nim'               => 'nullable|string|max:50',
                 'prodi'             => 'required|string|max:255',
+                'jenis_kelamin'     => 'nullable|in:L,P',
                 'dosen_pembimbing'  => 'required|string|max:255',
                 'judul_skripsi'     => 'required|string',
                 'tanggal_sidang'    => 'required|date',
@@ -191,6 +216,9 @@ class FormPengambilanIjazahController extends Controller
             }
 
             $validated = $validator->validated();
+            if (empty($validated['jenis_kelamin'])) {
+                $validated['jenis_kelamin'] = $form->jenis_kelamin ?? Auth::user()?->jenis_kelamin;
+            }
             $form->update($validated);
             $this->signatureService->ensureStepsForForm($form);
 

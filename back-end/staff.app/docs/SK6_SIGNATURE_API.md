@@ -37,6 +37,7 @@ API ini digunakan untuk menghubungkan modul **SK 6** dengan website lain (misaln
 Query parameter opsional:
 - `nim` — filter tepat berdasarkan NIM mahasiswa
 - `prodi_id` — filter berdasarkan ID prodi
+- `jenis_kelamin` — filter Putra / Putri (`L` atau `putra` untuk Putra, `P` atau `putri` untuk Putri). *Alias: `putra_putri` / `gender`.*
 - `search` — cari berdasarkan nama mahasiswa atau NIM
 - `step_key` & `step_status` (`pending` atau `approved`) — misal `?step_key=baku&step_status=pending` untuk mengambil daftar SK 6 yang belum dikonfirmasi BAKU
 - `ready_for_step` — **(Rekomendasi untuk alur berjenjang)** hanya tampilkan data yang **semua step sebelumnya sudah `approved`** dan step target masih `pending`. Contoh untuk Simkeu (BAKU): `?ready_for_step=baku` (hanya muncul setelah `kaprodi` ACC dan `baku` belum ACC).
@@ -61,6 +62,7 @@ Contoh Response `200 OK`:
         "nim": "202285290001",
         "prodi_id": 10,
         "prodi_nama": "Pendidikan Bahasa Arab",
+        "jenis_kelamin": "L",
         "tanggal": "2026-11-21",
         "signed_count": 1,
         "total_steps": 5,

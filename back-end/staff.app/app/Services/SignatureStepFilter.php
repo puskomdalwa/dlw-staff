@@ -9,6 +9,43 @@ use Illuminate\Support\Collection;
 class SignatureStepFilter
 {
     /**
+     * Normalize gender / putra-putri input into 'L' or 'P'.
+     */
+    public static function normalizeGender(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $raw = strtolower(trim((string) $value));
+        if ($raw === '') {
+            return null;
+        }
+
+        return match ($raw) {
+            'l', 'putra', 'laki', 'laki-laki', 'lk', 'male', '1' => 'L',
+            'p', 'putri', 'perempuan', 'pr', 'wanita', 'female', '2' => 'P',
+            default => throw new \InvalidArgumentException(
+                "Parameter 'jenis_kelamin' ('{$value}') tidak valid. Gunakan 'L'/'putra' atau 'P'/'putri'."
+            ),
+        };
+    }
+
+    /**
+     * Resolve optional gender filter from request query params ('jenis_kelamin', 'putra_putri', or 'gender').
+     */
+    public static function resolveGenderFilter(Request $request): ?string
+    {
+        foreach (['jenis_kelamin', 'putra_putri', 'gender'] as $param) {
+            if ($request->filled($param)) {
+                return self::normalizeGender($request->input($param));
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Parse comma-separated or array step keys and validate them against $stepOrder.
      *
      * @return string[]

@@ -16,12 +16,14 @@ export default defineComponent({
   setup() {
     const items = ref([]);
     const searchValue = ref("");
+    const filterJenisKelamin = ref("");
     const total = ref(0);
     const headers = [
       { text: "No", value: "no", sortable: false, width: 60 },
       { text: "Nama Mahasiswa", value: "nama_mhs", sortable: true },
       { text: "NIM/NRIM", value: "nim", sortable: true, width: 130 },
       { text: "Program Studi", value: "prodi", sortable: true },
+      { text: "Putra/Putri", value: "jenis_kelamin", sortable: true, width: 110 },
       { text: "Dosen Pembimbing", value: "dosen_pembimbing", sortable: true },
       { text: "Tanggal Sidang", value: "tanggal_sidang", sortable: true, width: 130 },
       { text: "Timeline TTD (QR)", value: "signatures", sortable: false, width: 280 },
@@ -174,6 +176,7 @@ export default defineComponent({
           sortBy: serverOptions.value.sortBy,
           sortType: serverOptions.value.sortType,
           search: searchValue.value,
+          jenis_kelamin: filterJenisKelamin.value || undefined,
         });
 
         const rows = Array.isArray(response.data?.data?.data)
@@ -514,7 +517,7 @@ export default defineComponent({
       });
     }
 
-    watch(searchValue, () => {
+    watch([searchValue, filterJenisKelamin], () => {
       serverOptions.value.page = 1;
       getData();
     });
@@ -538,6 +541,7 @@ export default defineComponent({
       total,
       loading,
       searchValue,
+      filterJenisKelamin,
       serverOptions,
       getData,
       goAdd,
@@ -649,7 +653,16 @@ export default defineComponent({
               <i class="ri-user-settings-line align-middle me-1"></i> Default Penandatangan
             </button>
           </div>
-          <div class="col-12 col-md-4 ms-auto">
+          <div class="col-12 col-md-5 ms-auto d-flex gap-2">
+            <select
+              class="form-select form-select-sm"
+              style="max-width: 150px"
+              v-model="filterJenisKelamin"
+            >
+              <option value="">Semua Gender</option>
+              <option value="L">Putra (L)</option>
+              <option value="P">Putri (P)</option>
+            </select>
             <div class="input-group">
               <input
                 type="text"
@@ -682,6 +695,22 @@ export default defineComponent({
               <span class="visually-hidden">Loading...</span>
             </div>
           </div>
+        </template>
+
+        <template #item-jenis_kelamin="item">
+          <span
+            v-if="item.jenis_kelamin === 'L'"
+            class="badge bg-info-transparent"
+          >
+            Putra (L)
+          </span>
+          <span
+            v-else-if="item.jenis_kelamin === 'P'"
+            class="badge bg-danger-transparent"
+          >
+            Putri (P)
+          </span>
+          <span v-else class="text-muted">-</span>
         </template>
 
         <template #item-signatures="item">
@@ -1431,6 +1460,8 @@ export default defineComponent({
                       <td><code>{{ apiConfig.base_url }}</code></td>
                       <td>
                         List Form Pengambilan Ijazah (query opsional: <code>?nim=...</code>,
+                        <code>?prodi=...</code>,
+                        <code>?jenis_kelamin=L|P</code> (atau <code>putra|putri</code>),
                         <code>?search=...</code>,
                         <code>?step_key=keuangan_pondok&amp;step_status=pending</code>,
                         <code>?ready_for_step=baku</code>,
@@ -1481,6 +1512,10 @@ export default defineComponent({
                   <li>
                     <strong>Filter syarat step tertentu:</strong>
                     <code>?approved_steps=keuangan_pondok</code> atau <code>?approved_steps=keuangan_pondok,baku&amp;pending_steps=baak</code>
+                  </li>
+                  <li>
+                    <strong>Filter Putra / Putri (Jenis Kelamin):</strong>
+                    <code>?jenis_kelamin=L</code> (atau <code>putra</code>) dan <code>?jenis_kelamin=P</code> (atau <code>putri</code>)
                   </li>
                   <li>
                     <strong>Kunci anti-loncat saat konfirmasi (POST /sign):</strong>

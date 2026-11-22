@@ -447,4 +447,58 @@ class Sk6SignatureTest extends TestCase
         // Clean up unused variable warning
         $this->assertNotNull($sk6B->id);
     }
+
+    public function test_external_api_gender_putra_putri_filter(): void
+    {
+        [$user, $prodi, $sk6Putra] = $this->seedSk6Scenario();
+
+        $sklmkPutri = (new SuratKeteranganLulusMataKuliah())->forceFill([
+            'nomor_surat' => 'SKLM-002/TEST/2026',
+            'prodi_id' => $prodi->id,
+            'nama_lengkap' => 'Siti Aminah',
+            'tempat_lahir' => 'Pasuruan',
+            'tanggal_lahir' => '2002-05-05',
+            'nim' => '202285290099',
+            'prodi_mahasiswa' => $prodi->nama,
+            'alamat_rumah' => 'Bangil',
+            'kelas_pondok' => 'VI B',
+            'tanggal' => '2026-11-21',
+            'user_id' => $user->id,
+            'jenis_kelamin' => 'P',
+            'status' => 'pending',
+        ]);
+        $sklmkPutri->save();
+
+        $sk6Putri = SuratKeterangan6::create([
+            'nama_mhs' => 'Siti Aminah',
+            'nim' => '202285290099',
+            'tanggal' => '2026-11-21',
+            'prodi_id' => $prodi->id,
+            'surat_keterangan_lulus_mata_kuliah_id' => $sklmkPutri->id,
+            'surat_keterangan_administrasi_keuangan_id' => $sk6Putra->surat_keterangan_administrasi_keuangan_id,
+            'surat_keterangan_tasma_kkn_ppl_id' => $sk6Putra->surat_keterangan_tasma_kkn_ppl_id,
+            'surat_keterangan_ujian_komprehensif_diniyah_id' => $sk6Putra->surat_keterangan_ujian_komprehensif_diniyah_id,
+            'surat_keterangan_qismul_aman_id' => $sk6Putra->surat_keterangan_qismul_aman_id,
+        ]);
+
+        $apiKey = IntegrationApiKey::getOrCreateDefault($user->id)->api_key;
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?jenis_kelamin=L')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6Putra->id)
+            ->assertJsonPath('data.items.0.jenis_kelamin', 'L');
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?jenis_kelamin=putri')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6Putri->id)
+            ->assertJsonPath('data.items.0.jenis_kelamin', 'P');
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?jenis_kelamin=invalid')
+            ->assertStatus(422);
+    }
 }

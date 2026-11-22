@@ -17,6 +17,7 @@ class FormPengambilanIjazah extends Model
         'nama_mhs',
         'nim',
         'prodi',
+        'jenis_kelamin',
         'dosen_pembimbing',
         'judul_skripsi',
         'tanggal_sidang',

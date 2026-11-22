@@ -47,6 +47,7 @@ class PengambilanIjazahSignatureController extends Controller
                     'nama_mhs' => $form->nama_mhs,
                     'nim' => $form->nim,
                     'prodi' => $form->prodi,
+                    'jenis_kelamin' => $form->jenis_kelamin,
                     'tanggal_sidang' => $form->tanggal_sidang,
                     'signed_count' => $signedCount,
                     'total_steps' => count($steps),
@@ -295,6 +296,11 @@ class PengambilanIjazahSignatureController extends Controller
         }
 
         try {
+            $gender = SignatureStepFilter::resolveGenderFilter($request);
+            if ($gender !== null) {
+                $query->where('jenis_kelamin', $gender);
+            }
+
             SignatureStepFilter::applyExternalListFilters($query, $request, PengambilanIjazahSignatureService::STEP_ORDER);
         } catch (\InvalidArgumentException $e) {
             return response()->json([
@@ -558,6 +564,7 @@ class PengambilanIjazahSignatureController extends Controller
             'nama_mhs' => $form->nama_mhs,
             'nim' => $form->nim,
             'prodi' => $form->prodi,
+            'jenis_kelamin' => $form->jenis_kelamin,
             'dosen_pembimbing' => $form->dosen_pembimbing,
             'tanggal_sidang' => $form->tanggal_sidang,
             'drive_link' => $form->drive_link,

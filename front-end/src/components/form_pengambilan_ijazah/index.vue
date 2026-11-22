@@ -22,11 +22,20 @@ const defaultForm = {
   nama_mhs: "",
   nim: "",
   prodi: "",
+  jenis_kelamin: "",
   dosen_pembimbing: "",
   judul_skripsi: "",
   tanggal_sidang: "",
   no_hp: "",
 };
+
+function normalizeJenisKelamin(val: any): string {
+  const raw = String(val || "").trim().toUpperCase();
+  if (!raw) return "";
+  if (raw === "P" || raw.startsWith("PUTRI") || raw.startsWith("PEREMPUAN")) return "P";
+  if (raw === "L" || raw.startsWith("PUTRA") || raw.startsWith("LAKI")) return "L";
+  return "";
+}
 
 const form = reactive({ ...defaultForm });
 
@@ -167,11 +176,17 @@ watch(listMhs, async (val) => {
       form.no_hp = val.hp || val.no_hp || val.telepon;
     }
 
+    const jk = normalizeJenisKelamin(val.jenis_kelamin ?? val.jk);
+    if (jk) {
+      form.jenis_kelamin = jk;
+    }
+
     isLoadingData.value = false;
   } else {
     form.nama_mhs = "";
     form.nim = "";
     form.prodi = "";
+    form.jenis_kelamin = "";
   }
 });
 
@@ -203,6 +218,7 @@ watch(
     form.nama_mhs = val.nama_mhs ?? "";
     form.nim = val.nim ?? "";
     form.prodi = val.prodi ?? "";
+    form.jenis_kelamin = val.jenis_kelamin ?? "";
     form.dosen_pembimbing = val.dosen_pembimbing ?? "";
     form.judul_skripsi = val.judul_skripsi ?? "";
     form.tanggal_sidang = val.tanggal_sidang ? val.tanggal_sidang.slice(0, 10) : "";
@@ -338,6 +354,25 @@ function submitForm() {
                 />
                 <div v-if="errors?.prodi" class="invalid-feedback">
                   {{ errors.prodi[0] }}
+                </div>
+              </div>
+
+              <!-- Input Jenis Kelamin (Putra / Putri) -->
+              <div class="col-xl-6">
+                <label class="form-label">Putra / Putri (Jenis Kelamin):</label>
+                <div v-if="isLoadingData" class="skeleton-input"></div>
+                <select
+                  v-else
+                  v-model="form.jenis_kelamin"
+                  class="form-select"
+                  :class="{ 'is-invalid': errors?.jenis_kelamin }"
+                >
+                  <option value="">-- Pilih Putra / Putri --</option>
+                  <option value="L">Putra (L)</option>
+                  <option value="P">Putri (P)</option>
+                </select>
+                <div v-if="errors?.jenis_kelamin" class="invalid-feedback">
+                  {{ errors.jenis_kelamin[0] }}
                 </div>
               </div>
 

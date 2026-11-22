@@ -1172,6 +1172,8 @@ export default defineComponent({
                       <td><code>{{ apiConfig.base_url }}</code></td>
                       <td>
                         List SK 6 (query opsional: <code>?nim=...</code>,
+                        <code>?prodi_id=...</code>,
+                        <code>?jenis_kelamin=L|P</code> (atau <code>putra|putri</code>),
                         <code>?search=...</code>,
                         <code>?step_key=baku&amp;step_status=pending</code>,
                         <code>?ready_for_step=baku</code>,
@@ -1222,6 +1224,10 @@ export default defineComponent({
                   <li>
                     <strong>Filter syarat step tertentu:</strong>
                     <code>?approved_steps=kaprodi</code> atau <code>?approved_steps=kaprodi,baku&amp;pending_steps=kkn</code>
+                  </li>
+                  <li>
+                    <strong>Filter Putra / Putri (Jenis Kelamin):</strong>
+                    <code>?jenis_kelamin=L</code> (atau <code>putra</code>) dan <code>?jenis_kelamin=P</code> (atau <code>putri</code>)
                   </li>
                   <li>
                     <strong>Kunci anti-loncat saat konfirmasi (POST /sign):</strong>
