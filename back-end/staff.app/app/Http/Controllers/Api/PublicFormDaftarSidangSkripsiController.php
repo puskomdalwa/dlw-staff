@@ -661,9 +661,9 @@ class PublicFormDaftarSidangSkripsiController extends Controller
                 try {
                     GoogleDrive::ensureFolder($cleanNewProdi);
                     GoogleDrive::ensureFolder("{$cleanNewProdi}/Dokumen Sidang Skripsi");
-                    GoogleDrive::ensureFolder($newDriveFolder);
+                    $resolvedDriveFolder = GoogleDrive::ensureFolder($newDriveFolder);
 
-                    $result = GoogleDrive::uploadFile($newDriveFolder, $newLocalPath, $newFileName);
+                    $result = GoogleDrive::uploadFile($resolvedDriveFolder, $newLocalPath, $newFileName);
                     if (!empty($result['file_id'])) {
                         GoogleDrive::setPublicPermission($result['file_id']);
 
@@ -747,9 +747,9 @@ class PublicFormDaftarSidangSkripsiController extends Controller
         try {
             GoogleDrive::ensureFolder($cleanProdi);
             GoogleDrive::ensureFolder("{$cleanProdi}/Dokumen Sidang Skripsi");
-            GoogleDrive::ensureFolder($driveFolderPath);
+            $resolvedDriveFolder = GoogleDrive::ensureFolder($driveFolderPath);
 
-            $result = GoogleDrive::uploadFile($driveFolderPath, $localPath, $fileName);
+            $result = GoogleDrive::uploadFile($resolvedDriveFolder, $localPath, $fileName);
 
             if (!empty($result['file_id'])) {
                 $driveFileId = $result['file_id'];
