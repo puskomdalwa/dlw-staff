@@ -101,6 +101,9 @@ class UploudSuratToDrive implements ShouldQueue
             $filePath = $this->isSignedSk6 ? $file->signed_local_path : $file->local_path;
             if (empty($filePath) || !file_exists($filePath)) {
                 Log::error("Local file does not exist at: {$filePath}");
+                if (!$this->isSignedSk6) {
+                    $file->update(['status' => 'failed']);
+                }
                 return;
             }
 
@@ -119,7 +122,7 @@ class UploudSuratToDrive implements ShouldQueue
 
                 GoogleDrive::ensureFolder($cleanProdi);
                 GoogleDrive::ensureFolder("{$cleanProdi}/Dokumen Sidang Skripsi");
-                GoogleDrive::ensureFolder($folderPath);
+                $folderPath = GoogleDrive::ensureFolder($folderPath);
             }
             // 2. Custom folder khusus jika secara eksplisit dipassing
             elseif (!empty($this->customFolderPath)) {
@@ -128,8 +131,9 @@ class UploudSuratToDrive implements ShouldQueue
                 $curr = '';
                 foreach ($parts as $p) {
                     $curr = $curr ? "{$curr}/{$p}" : $p;
-                    GoogleDrive::ensureFolder($curr);
+                    $curr = GoogleDrive::ensureFolder($curr);
                 }
+                $folderPath = $curr;
             }
             // 3. SEMUA SURAT DAN DOKUMEN LAINNYA: Tetap menggunakan format bawaan {ProdiName}/{NamaSurat}
             else {
@@ -139,36 +143,31 @@ class UploudSuratToDrive implements ShouldQueue
                 GoogleDrive::ensureFolder($this->prodiName);
 
                 // Pastikan folder surat ada di dalam folder prodi
-                GoogleDrive::ensureFolder($folderPath);
+                $folderPath = GoogleDrive::ensureFolder($folderPath);
             }
 
             // Upload file menggunakan Gdrive
             $result = GoogleDrive::uploadFile($folderPath, $filePath, $fileName);
 
+            if (empty($result['file_id'])) {
+                throw new \RuntimeException("Upload ke Google Drive tidak mengembalikan file_id untuk {$fileName} di folder {$folderPath}");
+            }
+
             if ($this->isSignedSk6) {
-                $signedUpdate = [];
-                if (!empty($result['file_id'])) {
-                    GoogleDrive::setPublicPermission($result['file_id']);
-                    $signedUpdate['signed_drive_file_id'] = $result['file_id'];
-                    $signedUpdate['signed_drive_link'] = "https://drive.google.com/file/d/{$result['file_id']}/view";
-                }
-                if (!empty($signedUpdate)) {
-                    $file->update($signedUpdate);
-                }
+                GoogleDrive::setPublicPermission($result['file_id']);
+                $file->update([
+                    'signed_drive_file_id' => $result['file_id'],
+                    'signed_drive_link'    => "https://drive.google.com/file/d/{$result['file_id']}/view",
+                ]);
             } else {
+                // Set permission agar file bisa diakses oleh siapa saja dengan link
+                GoogleDrive::setPublicPermission($result['file_id']);
+
                 $updateData = [
-                    // 'drive_path' => $result['path'],
-                    'status' => 'uploaded'
+                    'status'        => 'uploaded',
+                    'drive_file_id' => $result['file_id'],
+                    'drive_link'    => "https://drive.google.com/file/d/{$result['file_id']}/view",
                 ];
-
-                // Jika file ID berhasil didapat, simpan juga drive_file_id dan drive_link
-                if (!empty($result['file_id'])) {
-                    // Set permission agar file bisa diakses oleh siapa saja dengan link
-                    GoogleDrive::setPublicPermission($result['file_id']);
-
-                    $updateData['drive_file_id'] = $result['file_id'];
-                    $updateData['drive_link'] = "https://drive.google.com/file/d/{$result['file_id']}/view";
-                }
 
                 $file->update($updateData);
 

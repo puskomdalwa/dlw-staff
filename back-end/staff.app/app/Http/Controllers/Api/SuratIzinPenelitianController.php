@@ -15,6 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -169,7 +170,9 @@ class SuratIzinPenelitianController extends Controller
 
             $this->generateAndSavePdf($sip->id);
 
-            $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : 'UMUM';
+            $prodiName = Auth::user()?->prodi
+                ? Auth::user()->prodi->nama
+                : (Prodi::find($sip->prodi_id)?->nama ?? 'UMUM');
             $nameTable = 'Surat Izin Penelitian';
             UploudSuratToDrive::dispatch($sip->id, $nameTable, $prodiName, SuratIzinPenelitian::class);
 
@@ -352,7 +355,9 @@ class SuratIzinPenelitianController extends Controller
 
             $this->generateAndSavePdf($sip->id);
 
-            $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : 'UMUM';
+            $prodiName = Auth::user()?->prodi
+                ? Auth::user()->prodi->nama
+                : (Prodi::find($sip->prodi_id)?->nama ?? 'UMUM');
             $nameTable = 'Surat Izin Penelitian';
             UploudSuratToDrive::dispatch($sip->id, $nameTable, $prodiName, SuratIzinPenelitian::class);
 
@@ -405,9 +410,10 @@ class SuratIzinPenelitianController extends Controller
 
             $viewPath = resource_path('views/pdf/surat_izin_penelitian.blade.php');
             $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
-            $pdfMtime = (!empty($data->local_path) && file_exists($data->local_path)) ? filemtime($data->local_path) : 0;
+            $hasLocalFile = !empty($data->local_path) && file_exists($data->local_path) && is_readable($data->local_path);
+            $pdfMtime = $hasLocalFile ? filemtime($data->local_path) : 0;
 
-            if (empty($data->local_path) || !file_exists($data->local_path) || $viewMtime > $pdfMtime) {
+            if (!$hasLocalFile || $viewMtime > $pdfMtime) {
                 $this->generateAndSavePdf($data->id);
                 $data->refresh();
             }
@@ -423,8 +429,15 @@ class SuratIzinPenelitianController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("SuratIzinPenelitian downloadPdf error for ID {$id}: " . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal download PDF',
+                'error' => $th->getMessage(),
+            ], 500);
         }
     }
 
@@ -433,7 +446,7 @@ class SuratIzinPenelitianController extends Controller
         $data = SuratIzinPenelitian::leftJoin('prodi', 'prodi.id', '=', 'surat_izin_penelitian.prodi_id')
             ->leftJoin('fakultas_prodi', 'fakultas_prodi.prodi_id', '=', 'prodi.id')
             ->leftJoin('fakultas', 'fakultas.id', '=', 'fakultas_prodi.fakultas_id')
-            ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', 'fakultas.tanda_tangan_id')
+            ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', \DB::raw('COALESCE(surat_izin_penelitian.tanda_tangan_id, fakultas.tanda_tangan_id)'))
             ->select(
                 'surat_izin_penelitian.*',
                 'prodi.nama as prodi_name',
@@ -461,7 +474,7 @@ class SuratIzinPenelitianController extends Controller
         if (in_array($data->petanda_tangan, ['ya', 'stempel'])) {
             $stempelPath = base_path('../public_html/img/stempel.png');
             if (file_exists($stempelPath)) {
-                $stempelBase64 = SuratService::getBase64Image($stempelPath);
+                $stempelBase64 = SuratService::getBase64Image($stempelPath, 'image/png');
             }
         }
 
@@ -491,6 +504,7 @@ class SuratIzinPenelitianController extends Controller
         }
 
         $pdfData = [
+            'prodi_id' => $data->prodi_id,
             'nomor' => $data->nomor,
             'nama' => $data->nama,
             'nim' => $data->nim,
@@ -499,8 +513,8 @@ class SuratIzinPenelitianController extends Controller
             'semester' => $data->semester,
             'dari_tanggal' => \App\Services\SuratService::formatTanggalIndonesian($data->dari_tanggal),
             'tanggal' => \App\Services\SuratService::formatTanggalIndonesian($data->tanggal),
-            'ketua' => $data->ketua,
-            'nidn' => $data->nidn,
+            'ketua' => $data->ketua ?? null,
+            'nidn' => $data->nidn ?? null,
             'nama_dekan' => !empty($data->ketua) ? $data->ketua : ($data->nama_dekan ?? $data->nama_ttd),
             'nidn_dekan' => !empty($data->nidn) ? $data->nidn : $data->nidn_dekan,
             'prodi_name' => $data->prodi_name,
@@ -511,19 +525,30 @@ class SuratIzinPenelitianController extends Controller
             'petanda_tangan' => $data->petanda_tangan ?? 'tidak'
         ];
 
-        $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
-        $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratIzinPenelitianController/');
-        $pdf = Pdf::loadView('pdf.surat_izin_penelitian', $pdfData)->setPaper('a4', 'portrait');
-        $fileName = 'surat_izin_penelitian_' . $data->nim . '_' . uniqid() . '.pdf';
+        $rawProdiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
+        $safeProdiName = trim(preg_replace('/[\\\\\/:*?"<>|]/', ' ', (string) $rawProdiName)) ?: 'UMUM';
+        $safeNim = preg_replace('/[^a-zA-Z0-9_\-]/', '_', trim((string) $data->nim)) ?: (string) $data->id;
 
-        if (!file_exists($directory)) {
-            mkdir($directory, 0755, true);
+        $directory = base_path('../public_html/pdf/' . $safeProdiName . '/SuratIzinPenelitianController/');
+        $canUsePublicHtml = false;
+        try {
+            File::ensureDirectoryExists($directory, 0755, true);
+            $canUsePublicHtml = is_dir($directory) && is_writable($directory);
+        } catch (\Throwable $dirEx) {
+            Log::warning("Tidak dapat membuat direktori {$directory}, fallback ke storage/app/public: " . $dirEx->getMessage());
+        }
+        if (!$canUsePublicHtml) {
+            $directory = storage_path('app/public/pdf/' . $safeProdiName . '/SuratIzinPenelitianController/');
+            File::ensureDirectoryExists($directory, 0755, true);
         }
 
-        $path = $directory . $fileName;
+        $pdf = Pdf::loadView('pdf.surat_izin_penelitian', $pdfData)->setPaper('a4', 'portrait');
+        $fileName = 'surat_izin_penelitian_' . $safeNim . '_' . uniqid() . '.pdf';
+
+        $path = rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . $fileName;
         $pdf->save($path);
 
-        $data->update(['local_path' => $path]);
+        SuratIzinPenelitian::where('id', $data->id)->update(['local_path' => $path]);
 
         return $path;
     }
