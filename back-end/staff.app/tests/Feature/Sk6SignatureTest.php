@@ -159,12 +159,13 @@ class Sk6SignatureTest extends TestCase
             ->assertJsonPath('data.sk6.signed_count', 0);
 
         $steps = $res->json('data.steps');
-        $this->assertSame(['kaprodi', 'baku', 'kkn', 'idaroh_syuun', 'keamanan'], array_column($steps, 'step_key'));
+        $this->assertSame(['kaprodi', 'kkn', 'keamanan', 'baku', 'idaroh_syuun'], array_column($steps, 'step_key'));
         $this->assertSame('Ketua Program Studi Pendidikan Bahasa Arab', $steps[0]['title']);
-        $this->assertSame('Kepala Biro Administrasi Keuangan', $steps[1]['title']);
-        $this->assertSame('Ketua TASMA, KKN & PPL', $steps[2]['title']);
-        $this->assertSame('Wakil Rektor I', $steps[3]['title']);
-        $this->assertSame('Ketua Qismul Aman', $steps[4]['title']);
+        $this->assertSame('Ketua TASMA, KKN & PPL', $steps[1]['title']);
+        $this->assertSame('Ketua Qismul Aman', $steps[2]['title']);
+        $this->assertSame('Kepala Biro Administrasi Keuangan', $steps[3]['title']);
+        $this->assertSame('Idaroh Syuun', $steps[4]['title']);
+        $this->assertSame('Idaroh Syuun', $steps[4]['short_label']);
 
         $confirm = $this->actingAs($user, 'sanctum')
             ->postJson("/api/sk6/{$sk6->id}/signatures/kaprodi/confirm", [
@@ -291,28 +292,28 @@ class Sk6SignatureTest extends TestCase
                         'signer_nidn' => '',
                     ],
                     [
-                        'step_key' => 'baku',
-                        'title' => 'Kepala Biro Administrasi Keuangan',
-                        'signer_name' => 'Dr. Pejabat BAKU Baru, M.H.',
-                        'signer_nidn' => '223344',
-                    ],
-                    [
                         'step_key' => 'kkn',
                         'title' => 'Ketua TASMA, KKN & PPL',
                         'signer_name' => 'Ketua KKN Baru, M.Pd',
                         'signer_nidn' => '556677',
                     ],
                     [
-                        'step_key' => 'idaroh_syuun',
-                        'title' => 'Wakil Rektor I',
-                        'signer_name' => 'Warek I Baru, Ph.D.',
-                        'signer_nidn' => '889900',
-                    ],
-                    [
                         'step_key' => 'keamanan',
                         'title' => 'Ketua Qismul Aman',
                         'signer_name' => 'Ketua Qismul Aman Baru',
                         'signer_nidn' => '110022',
+                    ],
+                    [
+                        'step_key' => 'baku',
+                        'title' => 'Kepala Biro Administrasi Keuangan',
+                        'signer_name' => 'Dr. Pejabat BAKU Baru, M.H.',
+                        'signer_nidn' => '223344',
+                    ],
+                    [
+                        'step_key' => 'idaroh_syuun',
+                        'title' => 'Idaroh Syuun',
+                        'signer_name' => 'Pejabat Idaroh Syuun Baru, Ph.D.',
+                        'signer_nidn' => '889900',
                     ],
                 ],
             ]);
@@ -332,7 +333,8 @@ class Sk6SignatureTest extends TestCase
         $this->assertDatabaseHas('sk6_signatures', [
             'surat_keterangan_6_id' => $sk6->id,
             'step_key' => 'idaroh_syuun',
-            'signer_name' => 'Warek I Baru, Ph.D.',
+            'title' => 'Idaroh Syuun',
+            'signer_name' => 'Pejabat Idaroh Syuun Baru, Ph.D.',
             'signer_nidn' => '889900',
         ]);
     }
@@ -362,16 +364,16 @@ class Sk6SignatureTest extends TestCase
             ->getJson('/api/external/sk6?ready_for_step=invalid_step')
             ->assertStatus(422);
 
-        // Before kaprodi signs: ready_for_step=baku returns 0 items
+        // Before kaprodi signs: ready_for_step=kkn returns 0 items
         $this->withHeader('X-API-Key', $apiKey)
-            ->getJson('/api/external/sk6?ready_for_step=baku')
+            ->getJson('/api/external/sk6?ready_for_step=kkn')
             ->assertStatus(200)
             ->assertJsonPath('data.total', 0);
 
-        // With require_previous_approved=true, signing baku before kaprodi is rejected (422)
+        // With require_previous_approved=true, signing kkn before kaprodi is rejected (422)
         $this->withHeader('X-API-Key', $apiKey)
             ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
-                'step_key' => 'baku',
+                'step_key' => 'kkn',
                 'require_previous_approved' => true,
             ])
             ->assertStatus(422);
@@ -379,7 +381,7 @@ class Sk6SignatureTest extends TestCase
         // Signing with required_steps=['kaprodi'] is also rejected (422)
         $this->withHeader('X-API-Key', $apiKey)
             ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
-                'step_key' => 'kkn',
+                'step_key' => 'keamanan',
                 'required_steps' => ['kaprodi'],
             ])
             ->assertStatus(422);
@@ -392,50 +394,63 @@ class Sk6SignatureTest extends TestCase
             ])
             ->assertStatus(200);
 
-        // Now ready_for_step=baku returns ONLY sk6A (not sk6B)
-        $this->withHeader('X-API-Key', $apiKey)
-            ->getJson('/api/external/sk6?ready_for_step=baku')
-            ->assertStatus(200)
-            ->assertJsonPath('data.total', 1)
-            ->assertJsonPath('data.items.0.id', $sk6A->id);
-
-        // Equivalent explicit query filters also return ONLY sk6A
-        $this->withHeader('X-API-Key', $apiKey)
-            ->getJson('/api/external/sk6?step_key=baku&step_status=pending&require_previous_approved=1')
-            ->assertStatus(200)
-            ->assertJsonPath('data.total', 1)
-            ->assertJsonPath('data.items.0.id', $sk6A->id);
-
-        $this->withHeader('X-API-Key', $apiKey)
-            ->getJson('/api/external/sk6?approved_steps=kaprodi&pending_steps=baku')
-            ->assertStatus(200)
-            ->assertJsonPath('data.total', 1)
-            ->assertJsonPath('data.items.0.id', $sk6A->id);
-
-        // Now BAKU can sign sk6A with require_previous_approved=true
-        $this->withHeader('X-API-Key', $apiKey)
-            ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
-                'step_key' => 'baku',
-                'require_previous_approved' => true,
-            ])
-            ->assertStatus(200)
-            ->assertJsonPath('data.sk6.signed_count', 2);
-
-        // After BAKU signs, ready_for_step=baku is empty and ready_for_step=kkn has sk6A
-        $this->withHeader('X-API-Key', $apiKey)
-            ->getJson('/api/external/sk6?ready_for_step=baku')
-            ->assertStatus(200)
-            ->assertJsonPath('data.total', 0);
-
+        // Now ready_for_step=kkn returns ONLY sk6A (not sk6B), while ready_for_step=baku still returns 0
         $this->withHeader('X-API-Key', $apiKey)
             ->getJson('/api/external/sk6?ready_for_step=kkn')
             ->assertStatus(200)
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $sk6A->id);
 
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=baku')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
+
+        // Equivalent explicit query filters also return ONLY sk6A
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?step_key=kkn&step_status=pending&require_previous_approved=1')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6A->id);
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?approved_steps=kaprodi&pending_steps=kkn')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6A->id);
+
+        // BAKU cannot sign yet with require_previous_approved=true because KKN & Keamanan are still pending
+        $this->withHeader('X-API-Key', $apiKey)
+            ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
+                'step_key' => 'baku',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(422);
+
+        // Now KKN can sign sk6A with require_previous_approved=true
+        $this->withHeader('X-API-Key', $apiKey)
+            ->postJson("/api/external/sk6/{$sk6A->id}/sign", [
+                'step_key' => 'kkn',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.sk6.signed_count', 2);
+
+        // After KKN signs, ready_for_step=kkn is empty and ready_for_step=keamanan has sk6A
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=kkn')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
+
+        $this->withHeader('X-API-Key', $apiKey)
+            ->getJson('/api/external/sk6?ready_for_step=keamanan')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $sk6A->id);
+
         // Internal UI revoke and external API revoke both work cleanly
         $this->actingAs($user, 'sanctum')
-            ->postJson("/api/sk6/{$sk6A->id}/signatures/baku/revoke")
+            ->postJson("/api/sk6/{$sk6A->id}/signatures/kkn/revoke")
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 1);
 
@@ -500,5 +515,47 @@ class Sk6SignatureTest extends TestCase
         $this->withHeader('X-API-Key', $apiKey)
             ->getJson('/api/external/sk6?jenis_kelamin=invalid')
             ->assertStatus(422);
+    }
+
+    public function test_existing_legacy_order_and_warek_title_are_synced_to_revised_timeline(): void
+    {
+        [$user, $prodi, $sk6] = $this->seedSk6Scenario();
+
+        \Illuminate\Support\Facades\DB::table('sk6_signer_defaults')->insert([
+            ['step_order' => 1, 'step_key' => 'kaprodi', 'title' => 'Ketua Program Studi', 'signer_name' => null, 'signer_nidn' => null],
+            ['step_order' => 2, 'step_key' => 'baku', 'title' => 'Kepala Biro Administrasi Keuangan', 'signer_name' => 'BAKU', 'signer_nidn' => null],
+            ['step_order' => 3, 'step_key' => 'kkn', 'title' => 'Ketua TASMA, KKN & PPL', 'signer_name' => 'KKN', 'signer_nidn' => null],
+            ['step_order' => 4, 'step_key' => 'idaroh_syuun', 'title' => 'Wakil Rektor I', 'signer_name' => 'Idaroh', 'signer_nidn' => null],
+            ['step_order' => 5, 'step_key' => 'keamanan', 'title' => 'Ketua Qismul Aman', 'signer_name' => 'QA', 'signer_nidn' => null],
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('sk6_signatures')->insert([
+            ['surat_keterangan_6_id' => $sk6->id, 'step_order' => 1, 'step_key' => 'kaprodi', 'title' => 'Ketua Program Studi', 'status' => 'pending', 'signature_token' => 'tok_1'],
+            ['surat_keterangan_6_id' => $sk6->id, 'step_order' => 2, 'step_key' => 'baku', 'title' => 'Kepala Biro Administrasi Keuangan', 'status' => 'pending', 'signature_token' => 'tok_2'],
+            ['surat_keterangan_6_id' => $sk6->id, 'step_order' => 3, 'step_key' => 'kkn', 'title' => 'Ketua TASMA, KKN & PPL', 'status' => 'pending', 'signature_token' => 'tok_3'],
+            ['surat_keterangan_6_id' => $sk6->id, 'step_order' => 4, 'step_key' => 'idaroh_syuun', 'title' => 'Wakil Rektor I', 'status' => 'pending', 'signature_token' => 'tok_4'],
+            ['surat_keterangan_6_id' => $sk6->id, 'step_order' => 5, 'step_key' => 'keamanan', 'title' => 'Ketua Qismul Aman', 'status' => 'pending', 'signature_token' => 'tok_5'],
+        ]);
+
+        $defaultsRes = $this->actingAs($user, 'sanctum')->getJson('/api/sk6/signer-defaults');
+        $defaultsRes->assertStatus(200);
+        $defaults = $defaultsRes->json('data');
+        $this->assertSame(['kaprodi', 'kkn', 'keamanan', 'baku', 'idaroh_syuun'], array_column($defaults, 'step_key'));
+        $this->assertSame('Idaroh Syuun', $defaults[4]['title']);
+        $this->assertSame('Idaroh Syuun', $defaults[4]['short_label']);
+
+        $timelineRes = $this->actingAs($user, 'sanctum')->getJson("/api/sk6/{$sk6->id}/signatures");
+        $timelineRes->assertStatus(200);
+        $steps = $timelineRes->json('data.steps');
+        $this->assertSame(['kaprodi', 'kkn', 'keamanan', 'baku', 'idaroh_syuun'], array_column($steps, 'step_key'));
+        $this->assertSame([1, 2, 3, 4, 5], array_column($steps, 'step_order'));
+        $this->assertSame('Idaroh Syuun', $steps[4]['title']);
+        $this->assertSame('Idaroh Syuun', $steps[4]['short_label']);
+
+        $cfgRes = $this->actingAs($user, 'sanctum')->getJson('/api/sk6/integration-config');
+        $cfgRes->assertStatus(200);
+        $cfgSteps = $cfgRes->json('data.step_keys');
+        $this->assertSame(['kaprodi', 'kkn', 'keamanan', 'baku', 'idaroh_syuun'], array_column($cfgSteps, 'step_key'));
+        $this->assertSame('Idaroh Syuun', $cfgSteps[4]['title']);
     }
 }

@@ -1051,7 +1051,7 @@ export default defineComponent({
                 API &amp; Dokumentasi Integrasi TTD QR SK 6
               </h5>
               <small class="text-muted">
-                Hubungkan website eksternal (Keuangan/BAKU, KKN, Keamanan, Prodi, Warek I) untuk konfirmasi TTD SK 6.
+                Hubungkan website eksternal (Keuangan/BAKU, KKN, Keamanan, Prodi, Idaroh Syuun) untuk konfirmasi TTD SK 6.
               </small>
             </div>
             <button
@@ -1217,13 +1217,13 @@ export default defineComponent({
                 <div class="fw-semibold mb-1">Agar data baru muncul &amp; bisa di-ACC setelah step sebelumnya disetujui:</div>
                 <ul class="mb-0 ps-3">
                   <li>
-                    <strong>Filter list siap proses (contoh BAKU setelah Kaprodi ACC):</strong>
-                    <code>GET {{ apiConfig.base_url }}?ready_for_step=baku</code>
-                    (sama dengan <code>?step_key=baku&amp;step_status=pending&amp;require_previous_approved=1</code>)
+                    <strong>Filter list siap proses (contoh KKN setelah Kaprodi ACC):</strong>
+                    <code>GET {{ apiConfig.base_url }}?ready_for_step=kkn</code>
+                    (sama dengan <code>?step_key=kkn&amp;step_status=pending&amp;require_previous_approved=1</code>)
                   </li>
                   <li>
                     <strong>Filter syarat step tertentu:</strong>
-                    <code>?approved_steps=kaprodi</code> atau <code>?approved_steps=kaprodi,baku&amp;pending_steps=kkn</code>
+                    <code>?approved_steps=kaprodi</code> atau <code>?approved_steps=kaprodi,kkn&amp;pending_steps=keamanan</code>
                   </li>
                   <li>
                     <strong>Filter Putra / Putri (Jenis Kelamin):</strong>

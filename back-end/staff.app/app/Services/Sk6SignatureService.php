@@ -21,18 +21,18 @@ class Sk6SignatureService
 {
     public const STEP_ORDER = [
         'kaprodi' => 1,
-        'baku' => 2,
-        'kkn' => 3,
-        'idaroh_syuun' => 4,
-        'keamanan' => 5,
+        'kkn' => 2,
+        'keamanan' => 3,
+        'baku' => 4,
+        'idaroh_syuun' => 5,
     ];
 
     public const SHORT_LABELS = [
         'kaprodi' => 'Kaprodi',
-        'baku' => 'BAKU',
         'kkn' => 'KKN',
-        'idaroh_syuun' => 'Warek I',
         'keamanan' => 'Keamanan',
+        'baku' => 'BAKU',
+        'idaroh_syuun' => 'Idaroh Syuun',
     ];
 
     /**
@@ -49,8 +49,8 @@ class Sk6SignatureService
         $kknNidn = $settingKkn?->nidn;
 
         $settingKompre = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'ketua_komprehensif')->first();
-        $warekNama = $settingKompre?->tandaTangan?->nama ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.';
-        $warekNidn = $settingKompre?->nidn;
+        $idarohNama = $settingKompre?->tandaTangan?->nama ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.';
+        $idarohNidn = $settingKompre?->nidn;
 
         $settingQa = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'ketua_qismul_aman')->first();
         $qaNama = $settingQa?->tandaTangan?->nama ?: 'Ust. Fathul Munif';
@@ -66,31 +66,31 @@ class Sk6SignatureService
             ],
             [
                 'step_order' => 2,
-                'step_key' => 'baku',
-                'title' => 'Kepala Biro Administrasi Keuangan',
-                'signer_name' => $bakuNama,
-                'signer_nidn' => $bakuNidn,
-            ],
-            [
-                'step_order' => 3,
                 'step_key' => 'kkn',
                 'title' => 'Ketua TASMA, KKN & PPL',
                 'signer_name' => $kknNama,
                 'signer_nidn' => $kknNidn,
             ],
             [
-                'step_order' => 4,
-                'step_key' => 'idaroh_syuun',
-                'title' => 'Wakil Rektor I',
-                'signer_name' => $warekNama,
-                'signer_nidn' => $warekNidn,
-            ],
-            [
-                'step_order' => 5,
+                'step_order' => 3,
                 'step_key' => 'keamanan',
                 'title' => 'Ketua Qismul Aman',
                 'signer_name' => $qaNama,
                 'signer_nidn' => $qaNidn,
+            ],
+            [
+                'step_order' => 4,
+                'step_key' => 'baku',
+                'title' => 'Kepala Biro Administrasi Keuangan',
+                'signer_name' => $bakuNama,
+                'signer_nidn' => $bakuNidn,
+            ],
+            [
+                'step_order' => 5,
+                'step_key' => 'idaroh_syuun',
+                'title' => 'Idaroh Syuun',
+                'signer_name' => $idarohNama,
+                'signer_nidn' => $idarohNidn,
             ],
         ];
     }
@@ -114,6 +114,18 @@ class Sk6SignatureService
                     'signer_name' => $def['signer_name'],
                     'signer_nidn' => $def['signer_nidn'],
                 ]);
+            } else {
+                $updates = [];
+                if ((int) $row->step_order !== (int) $def['step_order']) {
+                    $updates['step_order'] = $def['step_order'];
+                }
+                if ($row->step_key === 'idaroh_syuun' && $row->title === 'Wakil Rektor I') {
+                    $updates['title'] = $def['title'];
+                }
+                if (!empty($updates)) {
+                    $row->update($updates);
+                    $row = $row->fresh();
+                }
             }
 
             $results[] = [
@@ -263,17 +275,17 @@ class Sk6SignatureService
         $kknNidn = $defKkn['signer_nidn'] ?? $sk6->skTasmaKknPpl?->nidn;
 
         $skukd = $sk6->skUjianKomprehensifDiniyah;
-        $defWarek = $defaults->get('idaroh_syuun');
-        $warekTitle = $defWarek['title'] ?? 'Wakil Rektor I';
-        $warekNama = $defWarek['signer_name'] ?? null;
-        if (empty($warekNama) && $skukd && $skukd->tanda_tangan_id) {
-            $ttdWarek = TandaTangan::find($skukd->tanda_tangan_id);
-            $warekNama = $ttdWarek?->nama;
+        $defIdaroh = $defaults->get('idaroh_syuun');
+        $idarohTitle = $defIdaroh['title'] ?? 'Idaroh Syuun';
+        $idarohNama = $defIdaroh['signer_name'] ?? null;
+        if (empty($idarohNama) && $skukd && $skukd->tanda_tangan_id) {
+            $ttdIdaroh = TandaTangan::find($skukd->tanda_tangan_id);
+            $idarohNama = $ttdIdaroh?->nama;
         }
-        if (empty($warekNama)) {
-            $warekNama = $skukd?->koor_komprehensif ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.';
+        if (empty($idarohNama)) {
+            $idarohNama = $skukd?->koor_komprehensif ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.';
         }
-        $warekNidn = $defWarek['signer_nidn'] ?? $skukd?->nidn;
+        $idarohNidn = $defIdaroh['signer_nidn'] ?? $skukd?->nidn;
 
         $defQa = $defaults->get('keamanan');
         $qaTitle = $defQa['title'] ?? 'Ketua Qismul Aman';
@@ -290,31 +302,31 @@ class Sk6SignatureService
             ],
             [
                 'step_order' => 2,
-                'step_key' => 'baku',
-                'title' => $bakuTitle,
-                'signer_name' => $bakuNama,
-                'signer_nidn' => $bakuNidn,
-            ],
-            [
-                'step_order' => 3,
                 'step_key' => 'kkn',
                 'title' => $kknTitle,
                 'signer_name' => $kknNama,
                 'signer_nidn' => $kknNidn,
             ],
             [
-                'step_order' => 4,
-                'step_key' => 'idaroh_syuun',
-                'title' => $warekTitle,
-                'signer_name' => $warekNama,
-                'signer_nidn' => $warekNidn,
-            ],
-            [
-                'step_order' => 5,
+                'step_order' => 3,
                 'step_key' => 'keamanan',
                 'title' => $qaTitle,
                 'signer_name' => $qaNama,
                 'signer_nidn' => $qaNidn,
+            ],
+            [
+                'step_order' => 4,
+                'step_key' => 'baku',
+                'title' => $bakuTitle,
+                'signer_name' => $bakuNama,
+                'signer_nidn' => $bakuNidn,
+            ],
+            [
+                'step_order' => 5,
+                'step_key' => 'idaroh_syuun',
+                'title' => $idarohTitle,
+                'signer_name' => $idarohNama,
+                'signer_nidn' => $idarohNidn,
             ],
         ];
     }
@@ -342,6 +354,18 @@ class Sk6SignatureService
                     'signature_token' => $this->generateUniqueToken(),
                 ]);
                 $existing->put($def['step_key'], $created);
+            } else {
+                $step = $existing->get($def['step_key']);
+                $updates = [];
+                if ((int) $step->step_order !== (int) $def['step_order']) {
+                    $updates['step_order'] = $def['step_order'];
+                }
+                if ($step->step_key === 'idaroh_syuun' && $step->title === 'Wakil Rektor I') {
+                    $updates['title'] = $def['title'];
+                }
+                if (!empty($updates)) {
+                    $step->update($updates);
+                }
             }
         }
 
@@ -622,7 +646,7 @@ class Sk6SignatureService
         $kaprodiStep = $steps->get('kaprodi');
         $bakuStep = $steps->get('baku');
         $kknStep = $steps->get('kkn');
-        $warekStep = $steps->get('idaroh_syuun');
+        $idarohStep = $steps->get('idaroh_syuun');
         $qaStep = $steps->get('keamanan');
 
         return [
@@ -663,9 +687,9 @@ class Sk6SignatureService
             'sktkp_nidn' => $kknStep?->signer_nidn,
             'qr_kkn' => $qrCodes['kkn'],
 
-            'skukd_title' => $warekStep?->title ?: 'Wakil Rektor I',
-            'skukd_nama' => $warekStep?->signer_name ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.',
-            'skukd_nidn' => $warekStep?->signer_nidn,
+            'skukd_title' => $idarohStep?->title ?: 'Idaroh Syuun',
+            'skukd_nama' => $idarohStep?->signer_name ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.',
+            'skukd_nidn' => $idarohStep?->signer_nidn,
             'qr_idaroh_syuun' => $qrCodes['idaroh_syuun'],
 
             'skqa_title' => $qaStep?->title ?: 'Ketua Qismul Aman',
