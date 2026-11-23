@@ -333,9 +333,10 @@ class PengumumanAkademikController extends Controller
 
             $viewPath = resource_path('views/pdf/pengumuman_akademik.blade.php');
             $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
-            $pdfMtime = (!empty($pengumuman->local_path) && file_exists($pengumuman->local_path)) ? filemtime($pengumuman->local_path) : 0;
+            $hasLocalFile = !empty($pengumuman->local_path) && file_exists($pengumuman->local_path) && is_readable($pengumuman->local_path);
+            $pdfMtime = $hasLocalFile ? filemtime($pengumuman->local_path) : 0;
 
-            if (empty($pengumuman->local_path) || !file_exists($pengumuman->local_path) || $viewMtime > $pdfMtime) {
+            if (!$hasLocalFile || $viewMtime > $pdfMtime) {
                 $this->generateAndSavePdf($pengumuman);
             }
 
@@ -346,8 +347,15 @@ class PengumumanAkademikController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("PengumumanAkademik downloadPdf error for ID {$id}: " . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal download PDF',
+                'error' => $th->getMessage(),
+            ], 500);
         }
     }
 
@@ -356,14 +364,11 @@ class PengumumanAkademikController extends Controller
         $pdfData = $this->buildPdfData($pengumuman);
         $pdf = Pdf::loadView('pdf.pengumuman_akademik', $pdfData)->setPaper('a4', 'portrait');
 
-        $directory = base_path('../public_html/pdf/BAAK/Pengumuman Akademik');
-        if (!File::exists($directory)) {
-            File::makeDirectory($directory, 0755, true);
-        }
+        $directory = SuratService::resolvePdfDirectory('BAAK', 'Pengumuman Akademik');
 
-        $cleanNomor = preg_replace('/[^A-Za-z0-9]/', '_', $pengumuman->nomor_surat);
+        $cleanNomor = SuratService::sanitizeFileSegment($pengumuman->nomor_surat ?? null, (string) $pengumuman->id);
         $fileName = 'pengumuman_akademik_' . $cleanNomor . '_' . uniqid() . '.pdf';
-        $path = $directory . '/' . $fileName;
+        $path = $directory . $fileName;
 
         $pdf->save($path);
         $pengumuman->update(['local_path' => $path]);

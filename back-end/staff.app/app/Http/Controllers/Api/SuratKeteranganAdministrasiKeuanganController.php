@@ -167,15 +167,12 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
             if ($refetched) {
                 $pdfData = $this->buildPdfData($refetched);
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($refetched->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganAdministrasiKeuanganController');
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganAdministrasiKeuanganController');
                 $pdf = Pdf::loadView('pdf.administrasi_keuangan', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_administrasi_keuangan_' . $refetched->nim . '_' . uniqid() . '.pdf';
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($refetched->nim ?? null, (string) $refetched->id);
+                $fileName = 'surat_keterangan_administrasi_keuangan_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $refetched->update(['local_path' => $path]);
@@ -369,15 +366,12 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
             if ($refetched) {
                 $pdfData = $this->buildPdfData($refetched);
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($refetched->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganAdministrasiKeuanganController');
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganAdministrasiKeuanganController');
                 $pdf = Pdf::loadView('pdf.administrasi_keuangan', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_administrasi_keuangan_' . $refetched->nim . '_' . uniqid() . '.pdf';
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($refetched->nim ?? null, (string) $refetched->id);
+                $fileName = 'surat_keterangan_administrasi_keuangan_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $refetched->update(['local_path' => $path]);
@@ -445,8 +439,8 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            \Illuminate\Support\Facades\Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            \Illuminate\Support\Facades\Log::error("SuratKeteranganAdministrasiKeuangan downloadPdf error for ID {$id}: " . $th->getMessage());
+            return response()->json(['status' => false, 'message' => 'Gagal download PDF', 'error' => $th->getMessage()], 500);
         }
     }
 

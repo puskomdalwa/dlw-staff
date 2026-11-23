@@ -237,12 +237,9 @@ class SuratKeteranganKknController extends Controller
                 $pdf = Pdf::loadView('pdf.kkn', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganKknController/');
-                $fileName = 'surat_keterangan_kkn_' . $data->nim . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganKknController');
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_kkn_' . $safeNim . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);
@@ -479,12 +476,9 @@ class SuratKeteranganKknController extends Controller
                 $pdf = Pdf::loadView('pdf.kkn', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganKknController/');
-                $fileName = 'surat_keterangan_kkn_' . $data->nim . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganKknController');
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_kkn_' . $safeNim . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);
@@ -554,8 +548,8 @@ class SuratKeteranganKknController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("SuratKeteranganKkn downloadPdf error for ID {$id}: " . $th->getMessage());
+            return response()->json(['status' => false, 'message' => 'Gagal download PDF', 'error' => $th->getMessage()], 500);
         }
     }
 

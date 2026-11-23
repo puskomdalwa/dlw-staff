@@ -192,14 +192,11 @@ class SuratKeteranganTasmaKknPplController extends Controller
                 $pdf = Pdf::loadView('pdf.surat_tasma_kkn_ppl', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganTasmaKknPplController');
-                $fileName = 'surat_keterangan_tasma_kkn_ppl_' . $data->nim . '_' . uniqid() . '.pdf';
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganTasmaKknPplController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_tasma_kkn_ppl_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);
@@ -392,14 +389,11 @@ class SuratKeteranganTasmaKknPplController extends Controller
                 $pdf = Pdf::loadView('pdf.surat_tasma_kkn_ppl', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganTasmaKknPplController');
-                $fileName = 'surat_keterangan_tasma_kkn_ppl_' . $data->nim . '_' . uniqid() . '.pdf';
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganTasmaKknPplController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_tasma_kkn_ppl_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);

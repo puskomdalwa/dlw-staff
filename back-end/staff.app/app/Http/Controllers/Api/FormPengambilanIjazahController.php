@@ -417,14 +417,11 @@ class FormPengambilanIjazahController extends Controller
             @unlink($data->local_path);
         }
 
-        // Folder penyimpanan di server: public_html/pdf/BAAK/Form Pengambilan Ijazah/
-        $directory = base_path('../public_html/pdf/BAAK/Form Pengambilan Ijazah/');
+        // Folder penyimpanan di server: public_html/pdf/BAAK/Form Pengambilan Ijazah/ (fallback ke storage)
+        $directory = \App\Services\SuratService::resolvePdfDirectory('BAAK', 'Form Pengambilan Ijazah');
+        $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
 
-        if (!file_exists($directory)) {
-            mkdir($directory, 0755, true);
-        }
-
-        $fileName = 'form_bebas_tanggungan_' . ($data->nim ?: $data->id) . '_' . uniqid() . '.pdf';
+        $fileName = 'form_bebas_tanggungan_' . $safeNim . '_' . uniqid() . '.pdf';
         $path = $directory . $fileName;
 
         $pdf = Pdf::loadView('pdf.form_pengambilan_ijazah', $pdfData)->setPaper('a4', 'portrait');

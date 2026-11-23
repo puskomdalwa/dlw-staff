@@ -354,15 +354,12 @@ class Sk6Controller extends Controller
                 $pdfData = $this->buildSk6PdfData($sk6, $sklmkRefetched, false);
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.sk_6', $pdfData)->setPaper('a4', 'portrait');
 
-                $fileName = 'SK6_' . $sklmkRefetched->nim . '_' . uniqid() . '.pdf';
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($sklmkRefetched->nim ?? null, (string) $sk6->id);
+                $fileName = 'SK6_' . $safeNim . '_' . uniqid() . '.pdf';
                 $prodiFolder = \Illuminate\Support\Facades\Auth::user()?->prodi ? \Illuminate\Support\Facades\Auth::user()->prodi->nama : ($sklmkRefetched->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/Sk6Controller');
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiFolder, 'Sk6Controller');
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $sk6->update(['local_path' => $path]);
@@ -776,15 +773,12 @@ class Sk6Controller extends Controller
                 $pdfData = $this->buildSk6PdfData($sk6, $sklmkRefetched, false);
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.sk_6', $pdfData)->setPaper('a4', 'portrait');
 
-                $fileName = 'SK6_' . $sklmkRefetched->nim . '_' . uniqid() . '.pdf';
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($sklmkRefetched->nim ?? null, (string) $sk6->id);
+                $fileName = 'SK6_' . $safeNim . '_' . uniqid() . '.pdf';
                 $prodiFolder = \Illuminate\Support\Facades\Auth::user()?->prodi ? \Illuminate\Support\Facades\Auth::user()->prodi->nama : ($sklmkRefetched->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/Sk6Controller');
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiFolder, 'Sk6Controller');
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $sk6->update(['local_path' => $path]);
@@ -891,8 +885,15 @@ class Sk6Controller extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            \Illuminate\Support\Facades\Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            \Illuminate\Support\Facades\Log::error("Sk6 downloadPdf error for ID {$id}: " . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal download PDF',
+                'error' => $th->getMessage(),
+            ], 500);
         }
     }
 
@@ -1046,15 +1047,13 @@ class Sk6Controller extends Controller
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.v_surat_keterangan_lulus_mata_kuliah', $pdfData)->setPaper('a4', 'portrait');
 
-            $fileName = 'surat_keterangan_lulus_mata_kuliah_' . $data->nim . '_' . $data->prodi_mahasiswa . '_' . uniqid() . '.pdf';
+            $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $id);
+            $safeProdiMhs = \App\Services\SuratService::sanitizeFileSegment($data->prodi_mahasiswa ?? null, 'prodi');
+            $fileName = 'surat_keterangan_lulus_mata_kuliah_' . $safeNim . '_' . $safeProdiMhs . '_' . uniqid() . '.pdf';
             $prodiFolder = \Illuminate\Support\Facades\Auth::user()?->prodi ? \Illuminate\Support\Facades\Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganLulusMataKuliahController');
+            $directory = \App\Services\SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganLulusMataKuliahController');
 
-            if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-            }
-
-            $path = $directory . '/' . $fileName;
+            $path = $directory . $fileName;
             $pdf->save($path);
 
             SuratKeteranganLulusMataKuliah::where('id', $id)->update(['local_path' => $path]);
@@ -1117,15 +1116,12 @@ class Sk6Controller extends Controller
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.administrasi_keuangan', $pdfData)->setPaper('a4', 'portrait');
 
-            $fileName = 'surat_keterangan_administrasi_keuangan_' . $data->nim . '_' . uniqid() . '.pdf';
+            $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $id);
+            $fileName = 'surat_keterangan_administrasi_keuangan_' . $safeNim . '_' . uniqid() . '.pdf';
             $prodiFolder = \Illuminate\Support\Facades\Auth::user()?->prodi ? \Illuminate\Support\Facades\Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganAdministrasiKeuanganController/');
+            $directory = \App\Services\SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganAdministrasiKeuanganController');
 
-            if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-            }
-
-            $path = $directory . '/' . $fileName;
+            $path = $directory . $fileName;
             $pdf->save($path);
 
             SuratKeteranganAdministrasiKeuangan::where('id', $id)->update(['local_path' => $path]);
@@ -1194,15 +1190,12 @@ class Sk6Controller extends Controller
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.surat_tasma_kkn_ppl', $pdfData)->setPaper('a4', 'portrait');
 
-            $fileName = 'surat_keterangan_tasma_kkn_ppl_' . $data->nim . '_' . uniqid() . '.pdf';
+            $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $id);
+            $fileName = 'surat_keterangan_tasma_kkn_ppl_' . $safeNim . '_' . uniqid() . '.pdf';
             $prodiFolder = \Illuminate\Support\Facades\Auth::user()?->prodi ? \Illuminate\Support\Facades\Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganTasmaKknPplController');
+            $directory = \App\Services\SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganTasmaKknPplController');
 
-            if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-            }
-
-            $path = $directory . '/' . $fileName;
+            $path = $directory . $fileName;
             $pdf->save($path);
 
             SuratKeteranganTasmaKknPpl::where('id', $id)->update(['local_path' => $path]);
@@ -1269,12 +1262,10 @@ class Sk6Controller extends Controller
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.komprehensif', $pdfData)->setPaper('a4', 'portrait');
 
             $prodiFolder = \Illuminate\Support\Facades\Auth::user()?->prodi ? \Illuminate\Support\Facades\Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganUjianKomprehensifDiniyahController/');
-            $fileName = 'surat_keterangan_ujian_komprehensif_diniyah_' . $data->nim . '_' . $data->alias_prodi . '_' . uniqid() . '.pdf';
-
-            if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-            }
+            $directory = \App\Services\SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganUjianKomprehensifDiniyahController');
+            $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $id);
+            $safeAlias = \App\Services\SuratService::sanitizeFileSegment($data->alias_prodi ?? null, 'prodi');
+            $fileName = 'surat_keterangan_ujian_komprehensif_diniyah_' . $safeNim . '_' . $safeAlias . '_' . uniqid() . '.pdf';
 
             $path = $directory . $fileName;
             $pdf->save($path);
@@ -1331,15 +1322,12 @@ class Sk6Controller extends Controller
 
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.surat_qismul_aman', $pdfData)->setPaper('a4', 'portrait');
 
-            $fileName = 'surat_keterangan_qismul_aman_' . $data->nim . '_' . uniqid() . '.pdf';
+            $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $id);
+            $fileName = 'surat_keterangan_qismul_aman_' . $safeNim . '_' . uniqid() . '.pdf';
             $prodiFolder = \Illuminate\Support\Facades\Auth::user()?->prodi ? \Illuminate\Support\Facades\Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganQismulAmanController');
+            $directory = \App\Services\SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganQismulAmanController');
 
-            if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-            }
-
-            $path = $directory . '/' . $fileName;
+            $path = $directory . $fileName;
             $pdf->save($path);
 
             SuratKeteranganQismulAman::where('id', $id)->update(['local_path' => $path]);

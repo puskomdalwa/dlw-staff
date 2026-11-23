@@ -226,12 +226,10 @@ class SuratKeteranganUjianKomprehensifDiniyahController extends Controller
 
                 $pdf = Pdf::loadView('pdf.komprehensif', $pdfData)->setPaper('a4', 'portrait');
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($refetched->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganUjianKomprehensifDiniyahController/');
-                $fileName = 'surat_keterangan_ujian_komprehensif_diniyah_' . $refetched->nim . '_' . $refetched->alias_prodi . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganUjianKomprehensifDiniyahController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($refetched->nim ?? null, (string) $refetched->id);
+                $safeAlias = \App\Services\SuratService::sanitizeFileSegment($refetched->alias_prodi ?? null, 'prodi');
+                $fileName = 'surat_keterangan_ujian_komprehensif_diniyah_' . $safeNim . '_' . $safeAlias . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);
@@ -496,12 +494,10 @@ class SuratKeteranganUjianKomprehensifDiniyahController extends Controller
 
                 $pdf = Pdf::loadView('pdf.komprehensif', $pdfData)->setPaper('a4', 'portrait');
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($refetched->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganUjianKomprehensifDiniyahController/');
-                $fileName = 'surat_keterangan_ujian_komprehensif_diniyah_' . $refetched->nim . '_' . $refetched->alias_prodi . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganUjianKomprehensifDiniyahController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($refetched->nim ?? null, (string) $refetched->id);
+                $safeAlias = \App\Services\SuratService::sanitizeFileSegment($refetched->alias_prodi ?? null, 'prodi');
+                $fileName = 'surat_keterangan_ujian_komprehensif_diniyah_' . $safeNim . '_' . $safeAlias . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);

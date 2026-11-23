@@ -152,10 +152,10 @@ class HasilRapatController extends Controller
                     'kopBase64' => $kopBase64,
                 ];
 
-                $directory = base_path('../public_html/pdf/Umum/Hasil Rapat/');
+                $directory = \App\Services\SuratService::resolvePdfDirectory('Umum', 'Hasil Rapat');
                 $pdf = Pdf::loadView('pdf.v_hasil_rapat', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'hasil_rapat_' . str_replace('/', '_', $data->nomor_surat ?? 'tanpa_nomor') . '_' . uniqid() . '.pdf';
-                if (!file_exists($directory)) mkdir($directory, 0755, true);
+                $safeNomor = \App\Services\SuratService::sanitizeFileSegment($data->nomor_surat ?? null, 'tanpa_nomor');
+                $fileName = 'hasil_rapat_' . $safeNomor . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);
@@ -295,10 +295,10 @@ class HasilRapatController extends Controller
                     'kopBase64' => $kopBase64,
                 ];
 
-                $directory = base_path('../public_html/pdf/Umum/Hasil Rapat/');
+                $directory = \App\Services\SuratService::resolvePdfDirectory('Umum', 'Hasil Rapat');
                 $pdf = Pdf::loadView('pdf.v_hasil_rapat', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'hasil_rapat_' . str_replace('/', '_', $data->nomor_surat ?? 'tanpa_nomor') . '_' . uniqid() . '.pdf';
-                if (!file_exists($directory)) mkdir($directory, 0755, true);
+                $safeNomor = \App\Services\SuratService::sanitizeFileSegment($data->nomor_surat ?? null, 'tanpa_nomor');
+                $fileName = 'hasil_rapat_' . $safeNomor . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);

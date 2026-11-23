@@ -116,7 +116,9 @@
 
     <!-- ===== KOP FULL WIDTH ===== -->
     <div class="kop">
-        <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @if (!empty($kopBase64))
+            <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @endif
     </div>
 
     <!-- ===== ISI SURAT ===== -->

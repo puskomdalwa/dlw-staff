@@ -188,14 +188,12 @@ class SuratKeteranganLulusMataKuliahController extends Controller
                 $pdf = Pdf::loadView('pdf.v_surat_keterangan_lulus_mata_kuliah', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganLulusMataKuliahController');
-                $fileName = 'surat_keterangan_lulus_mata_kuliah_' . $data->nim . '_' . $data->prodi_mahasiswa . '_' . uniqid() . '.pdf';
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganLulusMataKuliahController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $safeProdiMhs = \App\Services\SuratService::sanitizeFileSegment($data->prodi_mahasiswa ?? null, 'prodi');
+                $fileName = 'surat_keterangan_lulus_mata_kuliah_' . $safeNim . '_' . $safeProdiMhs . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);
@@ -384,14 +382,12 @@ class SuratKeteranganLulusMataKuliahController extends Controller
                 $pdf = Pdf::loadView('pdf.v_surat_keterangan_lulus_mata_kuliah', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganLulusMataKuliahController');
-                $fileName = 'surat_keterangan_lulus_mata_kuliah_' . $data->nim . '_' . $data->prodi_mahasiswa . '_' . uniqid() . '.pdf';
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganLulusMataKuliahController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $safeProdiMhs = \App\Services\SuratService::sanitizeFileSegment($data->prodi_mahasiswa ?? null, 'prodi');
+                $fileName = 'surat_keterangan_lulus_mata_kuliah_' . $safeNim . '_' . $safeProdiMhs . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);

@@ -400,8 +400,15 @@ class SuratTugasController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("SuratTugas downloadPdf error for ID {$id}: " . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal download PDF',
+                'error' => $th->getMessage(),
+            ], 500);
         }
     }
 
@@ -507,13 +514,10 @@ class SuratTugasController extends Controller
             ];
 
             $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
-            $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratTugasController/');
+            $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratTugasController');
             $pdf = Pdf::loadView('pdf.surat_tugas', $pdfData)->setPaper('a4', 'portrait');
-            $fileName = 'surat_tugas_' . ($data->nim_nik ?? 'doc') . '_' . uniqid() . '.pdf';
-
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
+            $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim_nik ?? null, (string) $st->id);
+            $fileName = 'surat_tugas_' . $safeNim . '_' . uniqid() . '.pdf';
 
             $path = $directory . $fileName;
             $pdf->save($path);

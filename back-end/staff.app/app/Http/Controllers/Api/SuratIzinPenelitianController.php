@@ -526,26 +526,13 @@ class SuratIzinPenelitianController extends Controller
         ];
 
         $rawProdiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
-        $safeProdiName = trim(preg_replace('/[\\\\\/:*?"<>|]/', ' ', (string) $rawProdiName)) ?: 'UMUM';
-        $safeNim = preg_replace('/[^a-zA-Z0-9_\-]/', '_', trim((string) $data->nim)) ?: (string) $data->id;
-
-        $directory = base_path('../public_html/pdf/' . $safeProdiName . '/SuratIzinPenelitianController/');
-        $canUsePublicHtml = false;
-        try {
-            File::ensureDirectoryExists($directory, 0755, true);
-            $canUsePublicHtml = is_dir($directory) && is_writable($directory);
-        } catch (\Throwable $dirEx) {
-            Log::warning("Tidak dapat membuat direktori {$directory}, fallback ke storage/app/public: " . $dirEx->getMessage());
-        }
-        if (!$canUsePublicHtml) {
-            $directory = storage_path('app/public/pdf/' . $safeProdiName . '/SuratIzinPenelitianController/');
-            File::ensureDirectoryExists($directory, 0755, true);
-        }
+        $safeNim = SuratService::sanitizeFileSegment($data->nim, (string) $data->id);
+        $directory = SuratService::resolvePdfDirectory($rawProdiName, 'SuratIzinPenelitianController');
 
         $pdf = Pdf::loadView('pdf.surat_izin_penelitian', $pdfData)->setPaper('a4', 'portrait');
         $fileName = 'surat_izin_penelitian_' . $safeNim . '_' . uniqid() . '.pdf';
 
-        $path = rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . $fileName;
+        $path = $directory . $fileName;
         $pdf->save($path);
 
         SuratIzinPenelitian::where('id', $data->id)->update(['local_path' => $path]);

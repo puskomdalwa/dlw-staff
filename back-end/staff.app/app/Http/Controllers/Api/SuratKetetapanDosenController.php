@@ -434,17 +434,11 @@ class SuratKetetapanDosenController extends Controller
     {
         $pdfData = $this->buildPdfData($data);
         $rawFolder = Auth::user()?->prodi?->nama ?: ($data->nama_institusi ?: 'UMUM');
-        $cleanFolder = preg_replace('/[\\\\\/:*?"<>|]/', ' ', $rawFolder);
-        $cleanFolder = trim(preg_replace('/\s+/', ' ', $cleanFolder)) ?: 'UMUM';
+        $directory = SuratService::resolvePdfDirectory($rawFolder, 'SuratKetetapanDosenController');
 
-        $directory = base_path('../public_html/pdf/' . $cleanFolder . '/SuratKetetapanDosenController');
-        if (!File::exists($directory)) {
-            File::makeDirectory($directory, 0755, true);
-        }
-
-        $safeSlug = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $data->nidn ?: $data->nama_dosen);
-        $fileName = 'surat_ketetapan_dosen_' . trim($safeSlug, '_') . '_' . uniqid() . '.pdf';
-        $path = $directory . '/' . $fileName;
+        $safeSlug = SuratService::sanitizeFileSegment($data->nidn ?: $data->nama_dosen, (string) $data->id);
+        $fileName = 'surat_ketetapan_dosen_' . $safeSlug . '_' . uniqid() . '.pdf';
+        $path = $directory . $fileName;
 
         Pdf::loadView('pdf.surat_ketetapan_dosen', $pdfData)
             ->setPaper('a4', 'portrait')

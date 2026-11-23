@@ -429,12 +429,9 @@ class PengambilanIjazahSignatureService
         $pdfData = $this->buildPdfData($form, true);
         $pdf = Pdf::loadView('pdf.form_pengambilan_ijazah', $pdfData)->setPaper('a4', 'portrait');
 
-        $directory = base_path('../public_html/pdf/BAAK/Form Pengambilan Ijazah/');
-        if (!File::exists($directory)) {
-            File::makeDirectory($directory, 0755, true);
-        }
+        $directory = SuratService::resolvePdfDirectory('BAAK', 'Form Pengambilan Ijazah');
 
-        $nimSafe = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) ($form->nim ?: $form->id));
+        $nimSafe = SuratService::sanitizeFileSegment($form->nim ?? null, (string) $form->id);
         $fileName = 'form_bebas_tanggungan_ttd_' . $nimSafe . '_' . $form->id . '.pdf';
         $path = $directory . $fileName;
 

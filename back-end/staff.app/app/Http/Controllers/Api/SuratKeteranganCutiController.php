@@ -128,15 +128,12 @@ class SuratKeteranganCutiController extends Controller
             if ($data) {
                 $pdfData = $this->buildPdfData($data);
                 $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganCutiController');
+                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganCutiController');
                 $pdf = Pdf::loadView('pdf.surat_keterangan_cuti', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_cuti_' . $data->nim . '_' . uniqid() . '.pdf';
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_cuti_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!File::exists($directory)) {
-                    File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $skc->update(['local_path' => $path]);
@@ -275,15 +272,12 @@ class SuratKeteranganCutiController extends Controller
             if ($data) {
                 $pdfData = $this->buildPdfData($data);
                 $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganCutiController');
+                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganCutiController');
                 $pdf = Pdf::loadView('pdf.surat_keterangan_cuti', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_cuti_' . $data->nim . '_' . uniqid() . '.pdf';
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_cuti_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!File::exists($directory)) {
-                    File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $skc->local_path = $path;
@@ -350,18 +344,16 @@ class SuratKeteranganCutiController extends Controller
                 return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
             }
 
-            // Jika file belum ada di server, generate ulang secara otomatis
-            if (empty($data->local_path) || !file_exists($data->local_path)) {
+            // Jika file belum ada di server atau tidak terbaca, generate ulang secara otomatis
+            if (empty($data->local_path) || !file_exists($data->local_path) || !is_readable($data->local_path)) {
                 $joined = $this->fetchJoinedData($data->id);
                 if ($joined) {
                     $pdfData = $this->buildPdfData($joined);
                     $prodiFolder = $joined->nama_prodi ?? 'UMUM';
-                    $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganCutiController');
-                    if (!File::exists($directory)) {
-                        File::makeDirectory($directory, 0755, true);
-                    }
-                    $fileName = 'surat_keterangan_cuti_' . $joined->nim . '_' . uniqid() . '.pdf';
-                    $path = $directory . '/' . $fileName;
+                    $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganCutiController');
+                    $safeNim = SuratService::sanitizeFileSegment($joined->nim ?? null, (string) $joined->id);
+                    $fileName = 'surat_keterangan_cuti_' . $safeNim . '_' . uniqid() . '.pdf';
+                    $path = $directory . $fileName;
                     Pdf::loadView('pdf.surat_keterangan_cuti', $pdfData)->setPaper('a4', 'portrait')->save($path);
                     $data->update(['local_path' => $path]);
                 }

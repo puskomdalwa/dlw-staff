@@ -241,12 +241,9 @@ class SuratKeteranganPplController extends Controller
                 $pdf = Pdf::loadView('pdf.ppl', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganPplController/');
-                $fileName = 'surat_keterangan_ppl_' . $data->nim . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganPplController');
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_ppl_' . $safeNim . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);
@@ -479,12 +476,9 @@ class SuratKeteranganPplController extends Controller
                 $pdf = Pdf::loadView('pdf.ppl', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganPplController/');
-                $fileName = 'surat_keterangan_ppl_' . $data->nim . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganPplController');
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_ppl_' . $safeNim . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);

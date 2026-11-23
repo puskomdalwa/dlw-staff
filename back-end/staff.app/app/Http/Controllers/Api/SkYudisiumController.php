@@ -526,9 +526,10 @@ class SkYudisiumController extends Controller
 
             $viewPath = resource_path('views/pdf/sk_yudisium.blade.php');
             $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
-            $pdfMtime = (!empty($data->local_path) && file_exists($data->local_path)) ? filemtime($data->local_path) : 0;
+            $hasLocalFile = !empty($data->local_path) && file_exists($data->local_path) && is_readable($data->local_path);
+            $pdfMtime = $hasLocalFile ? filemtime($data->local_path) : 0;
 
-            if (empty($data->local_path) || !file_exists($data->local_path) || $viewMtime > $pdfMtime) {
+            if (!$hasLocalFile || $viewMtime > $pdfMtime) {
                 $this->generatePdfFile($data->id, false);
                 $data->refresh();
             }
@@ -544,8 +545,15 @@ class SkYudisiumController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error('SkYudisium downloadPdf error: ' . $th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("SkYudisium downloadPdf error for ID {$id}: " . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal download PDF',
+                'error' => $th->getMessage(),
+            ], 500);
         }
     }
 
@@ -760,13 +768,10 @@ class SkYudisiumController extends Controller
                 ? Auth::user()->prodi->nama
                 : ($prodiObj?->nama ?: ($sk->prodi ?: 'UMUM'));
 
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SkYudisiumController/');
+            $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SkYudisiumController');
             $pdf = Pdf::loadView('pdf.sk_yudisium', $pdfData)->setPaper('a4', 'portrait');
-            $fileName = 'sk_yudisium_' . ($sk->batch_id ?: ($sk->nim ?: 'doc')) . '_' . uniqid() . '.pdf';
-
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
+            $safeKey = SuratService::sanitizeFileSegment($sk->batch_id ?: ($sk->nim ?: null), (string) $sk->id);
+            $fileName = 'sk_yudisium_' . $safeKey . '_' . uniqid() . '.pdf';
 
             $path = $directory . $fileName;
             $pdf->save($path);

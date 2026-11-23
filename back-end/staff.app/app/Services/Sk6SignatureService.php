@@ -571,16 +571,11 @@ class Sk6SignatureService
         $pdfData = $this->buildSk6PdfData($sk6, $sklmk, true);
         $pdf = Pdf::loadView('pdf.sk_6', $pdfData)->setPaper('a4', 'portrait');
 
-        $prodiFolder = preg_replace('/[\\\\\/:*?"<>|]/', ' ', $sklmk->nama_prodi ?? 'UMUM');
-        $prodiFolder = trim(preg_replace('/\s+/', ' ', $prodiFolder)) ?: 'UMUM';
-        $directory = base_path('../public_html/pdf/' . $prodiFolder . '/Sk6Controller');
+        $directory = SuratService::resolvePdfDirectory($sklmk->nama_prodi ?? 'UMUM', 'Sk6Controller');
 
-        if (!File::exists($directory)) {
-            File::makeDirectory($directory, 0755, true);
-        }
-
-        $fileName = 'SK6_TTD_' . preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $sklmk->nim) . '_' . $sk6->id . '.pdf';
-        $path = $directory . '/' . $fileName;
+        $nimSafe = SuratService::sanitizeFileSegment($sklmk->nim ?? null, (string) $sk6->id);
+        $fileName = 'SK6_TTD_' . $nimSafe . '_' . $sk6->id . '.pdf';
+        $path = $directory . $fileName;
 
         if (!empty($sk6->signed_local_path) && $sk6->signed_local_path !== $path && File::exists($sk6->signed_local_path)) {
             @File::delete($sk6->signed_local_path);

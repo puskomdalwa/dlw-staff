@@ -225,13 +225,10 @@ class SuratKeteranganController extends Controller
                 ];
 
                 $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganController/');
+                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganController');
                 $pdf = Pdf::loadView('pdf.surat_keterangan', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_' . $data->nim . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_' . $safeNim . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);
@@ -473,14 +470,11 @@ class SuratKeteranganController extends Controller
                 ];
 
                 $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganController/');
+                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganController');
                 $pdf = Pdf::loadView('pdf.surat_keterangan', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_' . $data->nim . '_' . uniqid() . '.pdf';
- 
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
- 
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_' . $safeNim . '_' . uniqid() . '.pdf';
+
                 $path = $directory . $fileName;
                 $pdf->save($path);
  
@@ -524,8 +518,8 @@ class SuratKeteranganController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("SuratKeterangan downloadPdf error for ID {$id}: " . $th->getMessage());
+            return response()->json(['status' => false, 'message' => 'Gagal download PDF', 'error' => $th->getMessage()], 500);
         }
     }
 

@@ -245,12 +245,9 @@ class SuratPernyataanVerifikasiNilaiController extends Controller
                     ->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratPernyataanVerifikasiNilaiController/');
-                $fileName = 'surat_pernyataan_verifikasi_nilai_' . $data->nim . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratPernyataanVerifikasiNilaiController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_pernyataan_verifikasi_nilai_' . $safeNim . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);
@@ -522,12 +519,9 @@ class SuratPernyataanVerifikasiNilaiController extends Controller
                     ->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratPernyataanVerifikasiNilaiController/');
-                $fileName = 'surat_pernyataan_verifikasi_nilai_' . $data->nim . '_' . uniqid() . '.pdf';
-
-                if (!file_exists($directory)) {
-                    mkdir($directory, 0755, true);
-                }
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratPernyataanVerifikasiNilaiController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_pernyataan_verifikasi_nilai_' . $safeNim . '_' . uniqid() . '.pdf';
 
                 $path = $directory . $fileName;
                 $pdf->save($path);

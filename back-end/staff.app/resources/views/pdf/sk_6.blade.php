@@ -104,7 +104,9 @@
 
     <!-- 1. SURAT KETERANGAN LULUS MATA KULIAH -->
     <div class="kop">
-        <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @if (!empty($kopBase64))
+            <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @endif
     </div>
 
     <div class="text-center">
@@ -196,7 +198,9 @@
 
     <!-- 2. SURAT KETERANGAN ADMINISTRASI KEUANGAN -->
     <div class="kop">
-        <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @if (!empty($kopBase64))
+            <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @endif
     </div>
 
     <div class="text-center">
@@ -290,7 +294,9 @@
 
     <!-- 3. SURAT KETERANGAN TASMA, KKN, DAN PPL -->
     <div class="kop">
-        <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @if (!empty($kopBase64))
+            <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @endif
     </div>
 
     <div class="text-center">
@@ -382,7 +388,9 @@
 
     <!-- 4. SURAT KETERANGAN UJIAN KOMPREHENSIF DINIYAH -->
     <div class="kop">
-        <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @if (!empty($kopBase64))
+            <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @endif
     </div>
 
     <div class="text-center">
@@ -472,7 +480,9 @@
 
     <!-- 5. SURAT KETERANGAN QISMUL AMAN -->
     <div class="kop">
-        <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @if (!empty($kopBase64))
+            <img src="{{ $kopBase64 }}" alt="Kop Surat">
+        @endif
     </div>
 
     <div class="text-center">

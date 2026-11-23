@@ -361,4 +361,39 @@ class SuratService
             'nidn'  => $nidn ?: null,
         ];
     }
+
+    /**
+     * Membersihkan segmen nama file (mis. NIM) agar aman untuk path filesystem.
+     */
+    public static function sanitizeFileSegment(?string $value, string $fallback = 'doc'): string
+    {
+        $clean = preg_replace('/[^a-zA-Z0-9_\-]/', '_', trim((string) ($value ?? '')));
+        $clean = trim((string) $clean, '_');
+        return $clean !== '' ? $clean : $fallback;
+    }
+
+    /**
+     * Menentukan direktori penyimpanan PDF yang dapat ditulis (public_html/pdf, fallback ke storage/app/public/pdf).
+     */
+    public static function resolvePdfDirectory(?string $prodiName, string $controllerFolder): string
+    {
+        $safeProdi = trim((string) preg_replace('/[\\\\\/:*?"<>|]/', ' ', (string) ($prodiName ?? 'UMUM'))) ?: 'UMUM';
+        $safeFolder = trim(str_replace(['..', '\\'], ['', '/'], $controllerFolder), '/');
+
+        $directory = base_path("../public_html/pdf/{$safeProdi}/{$safeFolder}/");
+        $canUsePublicHtml = false;
+        try {
+            \Illuminate\Support\Facades\File::ensureDirectoryExists($directory, 0755, true);
+            $canUsePublicHtml = is_dir($directory) && is_writable($directory);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Direktori {$directory} tidak dapat dipakai, fallback ke storage/app/public: " . $e->getMessage());
+        }
+
+        if (!$canUsePublicHtml) {
+            $directory = storage_path("app/public/pdf/{$safeProdi}/{$safeFolder}/");
+            \Illuminate\Support\Facades\File::ensureDirectoryExists($directory, 0755, true);
+        }
+
+        return rtrim($directory, '/\\') . DIRECTORY_SEPARATOR;
+    }
 }

@@ -187,14 +187,11 @@ class SuratKeteranganTransferController extends Controller
                 $pdf = Pdf::loadView('pdf.surat_keterangan_transfer', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganTransferController');
-                $fileName = 'surat_keterangan_transfer_' . $data->nim . '_' . uniqid() . '.pdf';
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganTransferController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_transfer_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);
@@ -393,14 +390,11 @@ class SuratKeteranganTransferController extends Controller
                 $pdf = Pdf::loadView('pdf.surat_keterangan_transfer', $pdfData)->setPaper('a4', 'portrait');
 
                 $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->prodi_name ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiName . '/SuratKeteranganTransferController');
-                $fileName = 'surat_keterangan_transfer_' . $data->nim . '_' . uniqid() . '.pdf';
+                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganTransferController');
+                $safeNim = \App\Services\SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_transfer_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);

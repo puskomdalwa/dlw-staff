@@ -422,9 +422,10 @@ class PengajuanJudulController extends Controller
 
             $viewPath = resource_path('views/pdf/pengajuan_judul.blade.php');
             $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
-            $pdfMtime = (!empty($data->local_path) && file_exists($data->local_path)) ? filemtime($data->local_path) : 0;
+            $hasLocalFile = !empty($data->local_path) && file_exists($data->local_path) && is_readable($data->local_path);
+            $pdfMtime = $hasLocalFile ? filemtime($data->local_path) : 0;
 
-            if (empty($data->local_path) || !file_exists($data->local_path) || $viewMtime > $pdfMtime) {
+            if (!$hasLocalFile || $viewMtime > $pdfMtime) {
                 $this->generatePdfFile($data->id, false);
                 $data->refresh();
             }
@@ -440,8 +441,15 @@ class PengajuanJudulController extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error('PengajuanJudul downloadPdf error: ' . $th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("PengajuanJudul downloadPdf error for ID {$id}: " . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal download PDF',
+                'error' => $th->getMessage(),
+            ], 500);
         }
     }
 
@@ -543,13 +551,10 @@ class PengajuanJudulController extends Controller
                 ? Auth::user()->prodi->nama
                 : ($prodiObj?->nama ?: ($pj->prodi ?: 'UMUM'));
 
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/PengajuanJudulController/');
+            $directory = SuratService::resolvePdfDirectory($prodiFolder, 'PengajuanJudulController');
             $pdf = Pdf::loadView('pdf.pengajuan_judul', $pdfData)->setPaper('a4', 'portrait');
-            $fileName = 'pengajuan_judul_' . ($pj->nim ?: 'doc') . '_' . uniqid() . '.pdf';
-
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
+            $safeNim = SuratService::sanitizeFileSegment($pj->nim ?? null, (string) $pj->id);
+            $fileName = 'pengajuan_judul_' . $safeNim . '_' . uniqid() . '.pdf';
 
             $path = $directory . $fileName;
             $pdf->save($path);

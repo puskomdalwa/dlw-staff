@@ -160,14 +160,11 @@ class SuratKeteranganSudahSidangController extends Controller
             // Generate PDF
             $pdfData = $this->buildPdfData($surat);
             $prodiFolder = 'BAAK';
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganSudahSidangController');
+            $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganSudahSidangController');
 
-            if (!File::exists($directory)) {
-                File::makeDirectory($directory, 0755, true);
-            }
-
-            $fileName = 'surat_keterangan_sudah_sidang_' . $surat->nim . '_' . uniqid() . '.pdf';
-            $path = $directory . '/' . $fileName;
+            $safeNim = SuratService::sanitizeFileSegment($surat->nim ?? null, (string) $surat->id);
+            $fileName = 'surat_keterangan_sudah_sidang_' . $safeNim . '_' . uniqid() . '.pdf';
+            $path = $directory . $fileName;
 
             $pdf = Pdf::loadView('pdf.surat_keterangan_sudah_sidang', $pdfData)->setPaper('a4', 'portrait');
             $pdf->save($path);
@@ -357,14 +354,11 @@ class SuratKeteranganSudahSidangController extends Controller
             // Re-generate PDF
             $pdfData = $this->buildPdfData($surat);
             $prodiFolder = 'BAAK';
-            $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganSudahSidangController');
+            $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganSudahSidangController');
 
-            if (!File::exists($directory)) {
-                File::makeDirectory($directory, 0755, true);
-            }
-
-            $fileName = 'surat_keterangan_sudah_sidang_' . $surat->nim . '_' . uniqid() . '.pdf';
-            $path = $directory . '/' . $fileName;
+            $safeNim = SuratService::sanitizeFileSegment($surat->nim ?? null, (string) $surat->id);
+            $fileName = 'surat_keterangan_sudah_sidang_' . $safeNim . '_' . uniqid() . '.pdf';
+            $path = $directory . $fileName;
 
             $pdf = Pdf::loadView('pdf.surat_keterangan_sudah_sidang', $pdfData)->setPaper('a4', 'portrait');
             $pdf->save($path);

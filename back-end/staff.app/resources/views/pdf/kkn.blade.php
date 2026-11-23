@@ -101,7 +101,9 @@
 
     <!-- KOP -->
     <div class="kop">
-        <img src="{{ $kopBase64 }}" alt="Kop Surat UII Dalwa">
+        @if (!empty($kopBase64))
+            <img src="{{ $kopBase64 }}" alt="Kop Surat UII Dalwa">
+        @endif
     </div>
 
     <!-- JUDUL -->

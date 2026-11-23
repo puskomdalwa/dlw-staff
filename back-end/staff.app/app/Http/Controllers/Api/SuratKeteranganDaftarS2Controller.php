@@ -164,15 +164,12 @@ class SuratKeteranganDaftarS2Controller extends Controller
 
                 $pdfData = $this->buildPdfData($data, $jabatan);
                 $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganDaftarS2Controller');
+                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganDaftarS2Controller');
                 $pdf = Pdf::loadView('pdf.surat_keterangan_daftar_s2', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_daftar_s2_' . $data->nim . '_' . uniqid() . '.pdf';
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_daftar_s2_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);
@@ -350,15 +347,12 @@ class SuratKeteranganDaftarS2Controller extends Controller
 
                 $pdfData = $this->buildPdfData($data, $jabatan);
                 $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = base_path('../public_html/pdf/' . $prodiFolder . '/SuratKeteranganDaftarS2Controller');
+                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganDaftarS2Controller');
                 $pdf = Pdf::loadView('pdf.surat_keterangan_daftar_s2', $pdfData)->setPaper('a4', 'portrait');
-                $fileName = 'surat_keterangan_daftar_s2_' . $data->nim . '_' . uniqid() . '.pdf';
+                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+                $fileName = 'surat_keterangan_daftar_s2_' . $safeNim . '_' . uniqid() . '.pdf';
 
-                if (!\Illuminate\Support\Facades\File::exists($directory)) {
-                    \Illuminate\Support\Facades\File::makeDirectory($directory, 0755, true);
-                }
-
-                $path = $directory . '/' . $fileName;
+                $path = $directory . $fileName;
                 $pdf->save($path);
 
                 $data->update(['local_path' => $path]);
@@ -426,8 +420,8 @@ class SuratKeteranganDaftarS2Controller extends Controller
                 'Content-Disposition' => 'inline; filename="' . $fileName . '"'
             ]);
         } catch (\Throwable $th) {
-            Log::error($th->getMessage());
-            return response()->json(['status' => false, 'message' => 'Gagal download PDF']);
+            Log::error("SuratKeteranganDaftarS2 downloadPdf error for ID {$id}: " . $th->getMessage());
+            return response()->json(['status' => false, 'message' => 'Gagal download PDF', 'error' => $th->getMessage()], 500);
         }
     }
 
