@@ -41,7 +41,7 @@ class DosenService
         return trim(rtrim($result, ", \t\n\r\0\x0B"));
     }
 
-    private static array $kodeCache = [];
+    private static array $identityCache = [];
 
     /**
      * Memecah string nama lengkap menjadi gelar depan, nama utama, dan gelar belakang.
@@ -208,19 +208,21 @@ class DosenService
     }
 
     /**
-     * Mencari kolom `kode` (NIY) dosen dari API SIAKAD berdasarkan NIDN atau nama dosen.
+     * Mencari identitas dosen (`kode` / NIY dan `nidn`) dari API SIAKAD berdasarkan NIDN, kode, atau nama dosen.
+     *
+     * @return array{matched: bool, kode: ?string, nidn: ?string}
      */
-    public static function findKodeDosen(?string $nidn = null, ?string $nama = null): ?string
+    public static function findDosenIdentity(?string $nidnOrKode = null, ?string $nama = null): array
     {
-        $cleanNidn = preg_replace('/\s+/', '', trim((string) ($nidn ?? '')));
+        $cleanQuery = preg_replace('/\s+/', '', trim((string) ($nidnOrKode ?? '')));
         $cleanNama = trim((string) ($nama ?? ''));
-        if ($cleanNidn === '' && $cleanNama === '') {
-            return null;
+        if ($cleanQuery === '' && $cleanNama === '') {
+            return ['matched' => false, 'kode' => null, 'nidn' => null];
         }
 
-        $cacheKey = $cleanNidn . '|' . strtolower($cleanNama);
-        if (array_key_exists($cacheKey, self::$kodeCache)) {
-            return self::$kodeCache[$cacheKey];
+        $cacheKey = $cleanQuery . '|' . strtolower($cleanNama);
+        if (array_key_exists($cacheKey, self::$identityCache)) {
+            return self::$identityCache[$cacheKey];
         }
 
         $extractField = static function ($item, string $key): ?string {
@@ -228,21 +230,24 @@ class DosenService
             return $val !== null && trim((string) $val) !== '' ? trim((string) $val) : null;
         };
 
-        // 1. Cari berdasarkan NIDN (paling akurat karena pencocokan langsung mst_dosen.nidn)
-        if ($cleanNidn !== '') {
-            $results = self::searchDosen($cleanNidn);
+        $toResult = static fn ($item): array => [
+            'matched' => true,
+            'kode' => $extractField($item, 'kode'),
+            'nidn' => $extractField($item, 'nidn'),
+        ];
+
+        // 1. Cari berdasarkan NIDN atau kode (pencocokan langsung mst_dosen.nidn / mst_dosen.kode)
+        if ($cleanQuery !== '') {
+            $results = self::searchDosen($cleanQuery);
             foreach ($results as $dosen) {
                 $itemNidn = preg_replace('/\s+/', '', (string) ($extractField($dosen, 'nidn') ?? ''));
-                $itemKode = $extractField($dosen, 'kode');
-                if ($itemNidn === $cleanNidn && $itemKode !== null) {
-                    return self::$kodeCache[$cacheKey] = $itemKode;
+                $itemKode = preg_replace('/\s+/', '', (string) ($extractField($dosen, 'kode') ?? ''));
+                if ($itemNidn === $cleanQuery || $itemKode === $cleanQuery) {
+                    return self::$identityCache[$cacheKey] = $toResult($dosen);
                 }
             }
             if (count($results) === 1) {
-                $onlyKode = $extractField($results[0], 'kode');
-                if ($onlyKode !== null) {
-                    return self::$kodeCache[$cacheKey] = $onlyKode;
-                }
+                return self::$identityCache[$cacheKey] = $toResult($results[0]);
             }
         }
 
@@ -257,26 +262,27 @@ class DosenService
                 $fullNorm = $normalize($cleanNama);
 
                 foreach ($results as $dosen) {
-                    $itemKode = $extractField($dosen, 'kode');
-                    if ($itemKode === null) {
-                        continue;
-                    }
                     $namaAsli = $normalize($extractField($dosen, 'nama_asli') ?? '');
                     $namaGelar = $normalize($extractField($dosen, 'nama_gelar') ?? ($extractField($dosen, 'nama') ?? ''));
                     if ($namaAsli === $targetNorm || $namaGelar === $fullNorm || str_contains($namaAsli, $targetNorm)) {
-                        return self::$kodeCache[$cacheKey] = $itemKode;
+                        return self::$identityCache[$cacheKey] = $toResult($dosen);
                     }
                 }
 
                 if (count($results) === 1) {
-                    $onlyKode = $extractField($results[0], 'kode');
-                    if ($onlyKode !== null) {
-                        return self::$kodeCache[$cacheKey] = $onlyKode;
-                    }
+                    return self::$identityCache[$cacheKey] = $toResult($results[0]);
                 }
             }
         }
 
-        return self::$kodeCache[$cacheKey] = null;
+        return self::$identityCache[$cacheKey] = ['matched' => false, 'kode' => null, 'nidn' => null];
+    }
+
+    /**
+     * Mencari kolom `kode` (NIY) dosen dari API SIAKAD berdasarkan NIDN atau nama dosen.
+     */
+    public static function findKodeDosen(?string $nidn = null, ?string $nama = null): ?string
+    {
+        return self::findDosenIdentity($nidn, $nama)['kode'];
     }
 }

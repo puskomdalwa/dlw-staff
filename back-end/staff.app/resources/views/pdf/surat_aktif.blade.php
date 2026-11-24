@@ -101,8 +101,14 @@
         }
         $finalKprodi = $finalDekan;
         $finalNidnKprodi = $finalNidnDekan;
-        if (!isset($kode_dosen)) {
-            $kode_dosen = \App\Services\DosenService::findKodeDosen($finalNidnKprodi, $dekan ?? $finalKprodi);
+        if (!array_key_exists('kode_dosen', get_defined_vars()) || !array_key_exists('nidn_dosen', get_defined_vars())) {
+            $dosenIdentity = \App\Services\DosenService::findDosenIdentity($finalNidnKprodi, $dekan ?? $finalKprodi);
+            if (!array_key_exists('kode_dosen', get_defined_vars())) {
+                $kode_dosen = $dosenIdentity['kode'] ?? null;
+            }
+            if (!array_key_exists('nidn_dosen', get_defined_vars())) {
+                $nidn_dosen = !empty($dosenIdentity['matched']) ? ($dosenIdentity['nidn'] ?? null) : $finalNidnKprodi;
+            }
         }
         @endphp
 
@@ -220,8 +226,8 @@
                     <div class="nama-ttd" style="margin-top:4px;">
                         <strong style="text-decoration: underline;">{{ $finalKprodi }}</strong>
                     </div>
-                    @if(!empty($finalNidnKprodi))
-                    <div style="margin-top:2px; font-size:10pt;">NIDN. {{ $finalNidnKprodi }}</div>
+                    @if(!empty($nidn_dosen))
+                    <div style="margin-top:2px; font-size:10pt;">NIDN. {{ $nidn_dosen }}</div>
                     @endif
                 </td>
             </tr>

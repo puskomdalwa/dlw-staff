@@ -513,7 +513,9 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             }
         }
 
-        $kodeDosen = \App\Services\DosenService::findKodeDosen($finalNidn, $finalPejabat);
+        $dosenIdentity = \App\Services\DosenService::findDosenIdentity($finalNidn, $finalPejabat);
+        $kodeDosen = $dosenIdentity['kode'];
+        $nidnDosen = $dosenIdentity['matched'] ? $dosenIdentity['nidn'] : $finalNidn;
 
         return [
             'prodi_id' => $data->prodi_id,
@@ -544,6 +546,7 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             'fakultas' => $data->fakultas,
             'nidn_dekan' => $finalNidn,
             'kode_dosen' => $kodeDosen,
+            'nidn_dosen' => $nidnDosen,
             'kopBase64' => $kopBase64,
             'stempel' => $stempelBase64,
             'petanda_tangan' => $data->petanda_tangan ?? ($petandaTangan ?? 'tidak'),
