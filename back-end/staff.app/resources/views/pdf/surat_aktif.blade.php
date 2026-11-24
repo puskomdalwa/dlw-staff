@@ -101,14 +101,8 @@
         }
         $finalKprodi = $finalDekan;
         $finalNidnKprodi = $finalNidnDekan;
-        if (!array_key_exists('kode_dosen', get_defined_vars()) || !array_key_exists('nidn_dosen', get_defined_vars())) {
-            $dosenIdentity = \App\Services\DosenService::findDosenIdentity($finalNidnKprodi, $dekan ?? $finalKprodi);
-            if (!array_key_exists('kode_dosen', get_defined_vars())) {
-                $kode_dosen = $dosenIdentity['kode'] ?? null;
-            }
-            if (!array_key_exists('nidn_dosen', get_defined_vars())) {
-                $nidn_dosen = !empty($dosenIdentity['matched']) ? ($dosenIdentity['nidn'] ?? null) : $finalNidnKprodi;
-            }
+        if (!array_key_exists('nidn_dosen', get_defined_vars())) {
+            $nidn_dosen = \App\Services\DosenService::resolveNidn($finalNidnKprodi, $dekan ?? $finalKprodi);
         }
         @endphp
 
@@ -120,9 +114,9 @@
                 <td>{{ $dekan ?? $finalKprodi }}</td>
             </tr>
             <tr>
-                <td>NIY</td>
+                <td>NIDN</td>
                 <td>:</td>
-                <td>{{ $kode_dosen ?? '-' }}</td>
+                <td>{{ !empty($nidn_dosen) ? $nidn_dosen : '-' }}</td>
             </tr>
             <tr>
                 <td>Jabatan</td>
