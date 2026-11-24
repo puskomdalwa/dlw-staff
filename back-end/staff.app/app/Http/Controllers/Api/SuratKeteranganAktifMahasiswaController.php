@@ -151,40 +151,10 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             $Nomor->user_id     = Auth::user()->id;
             $Nomor->save();
 
-            // Re-fetch record with joins to build the new PDF
-            $data = SuratKeteranganAktifMahasiswa::leftJoin('prodi', 'prodi.id', '=', 'surat_keterangan_aktif_mahasiswa.prodi_id')
-                ->leftJoin('fakultas_prodi', 'fakultas_prodi.prodi_id', '=', 'prodi.id')
-                ->leftJoin('fakultas', 'fakultas.id', '=', 'fakultas_prodi.fakultas_id')
-                ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', 'fakultas.tanda_tangan_id')
-                ->select(
-                    'surat_keterangan_aktif_mahasiswa.*',
-                    'prodi.nama as nama_prodi',
-                    'prodi.alias as alias_prodi',
-                    'prodi.nama_kepala as nama_kepala_prodi',
-                    'prodi.nidn_kepala as nidn_kepala_prodi',
-                    'fakultas.nama as fakultas',
-                    'fakultas.dekan as dekan',
-                    'fakultas.nidn_dekan as nidn_dekan',
-                    \DB::raw('COALESCE(tanda_tangan.tdd, tanda_tangan.gambar) as ttd')
-                )
-                ->where('surat_keterangan_aktif_mahasiswa.id', $skam->id)
-                ->first();
-
-            if ($data) {
-                $pdfData = $this->buildPdfData($data);
-                $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganAktifMahasiswaController');
-                $pdf = Pdf::loadView('pdf.surat_aktif', $pdfData)->setPaper('a4', 'portrait');
-                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
-                $fileName = 'surat_keterangan_aktif_mahasiswa_' . $safeNim . '_' . uniqid() . '.pdf';
-
-                $path = $directory . $fileName;
-                $pdf->save($path);
-
-                $data->update(['local_path' => $path]);
-
+            $prodiName = $this->generateAndSavePdf($skam->id);
+            if ($prodiName !== null) {
                 $nameTable = 'Surat Keterangan Aktif Mahasiswa';
-                UploudSuratToDrive::dispatch($data->id, $nameTable, $data->nama_prodi, SuratKeteranganAktifMahasiswa::class);
+                UploudSuratToDrive::dispatch($skam->id, $nameTable, $prodiName, SuratKeteranganAktifMahasiswa::class);
             }
 
             return response()->json([
@@ -379,41 +349,10 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             $skam->nidn = $signer['nidn'];
             $skam->save();
 
-            // Re-fetch record with joins to build the new PDF
-            $data = SuratKeteranganAktifMahasiswa::leftJoin('prodi', 'prodi.id', '=', 'surat_keterangan_aktif_mahasiswa.prodi_id')
-                ->leftJoin('fakultas_prodi', 'fakultas_prodi.prodi_id', '=', 'prodi.id')
-                ->leftJoin('fakultas', 'fakultas.id', '=', 'fakultas_prodi.fakultas_id')
-                ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', 'fakultas.tanda_tangan_id')
-                ->select(
-                    'surat_keterangan_aktif_mahasiswa.*',
-                    'prodi.nama as nama_prodi',
-                    'prodi.alias as alias_prodi',
-                    'prodi.nama_kepala as nama_kepala_prodi',
-                    'prodi.nidn_kepala as nidn_kepala_prodi',
-                    'fakultas.nama as fakultas',
-                    'fakultas.dekan as dekan',
-                    'fakultas.nidn_dekan as nidn_dekan',
-                    \DB::raw('COALESCE(tanda_tangan.tdd, tanda_tangan.gambar) as ttd')
-                )
-                ->where('surat_keterangan_aktif_mahasiswa.id', $skam->id)
-                ->first();
-
-            if ($data) {
-                $pdfData = $this->buildPdfData($data);
-                $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
-                $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganAktifMahasiswaController');
-                $pdf = Pdf::loadView('pdf.surat_aktif', $pdfData)->setPaper('a4', 'portrait');
-                $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
-                $fileName = 'surat_keterangan_aktif_mahasiswa_' . $safeNim . '_' . uniqid() . '.pdf';
-
-                $path = $directory . $fileName;
-                $pdf->save($path);
-
-                $skam->local_path = $path;
-                $skam->save();
-
+            $prodiName = $this->generateAndSavePdf($skam->id);
+            if ($prodiName !== null) {
                 $nameTable = 'Surat Keterangan Aktif Mahasiswa';
-                UploudSuratToDrive::dispatch($data->id, $nameTable, $data->nama_prodi, SuratKeteranganAktifMahasiswa::class);
+                UploudSuratToDrive::dispatch($skam->id, $nameTable, $prodiName, SuratKeteranganAktifMahasiswa::class);
             }
 
             return response()->json([
@@ -467,7 +406,17 @@ class SuratKeteranganAktifMahasiswaController extends Controller
                 return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
             }
 
-            if (empty($data->local_path) || !file_exists($data->local_path)) {
+            $viewPath = resource_path('views/pdf/surat_aktif.blade.php');
+            $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
+            $hasLocalFile = !empty($data->local_path) && file_exists($data->local_path) && is_readable($data->local_path);
+            $pdfMtime = $hasLocalFile ? filemtime($data->local_path) : 0;
+
+            if (!$hasLocalFile || $viewMtime > $pdfMtime) {
+                $this->generateAndSavePdf($data->id);
+                $data->refresh();
+            }
+
+            if (empty($data->local_path) || !file_exists($data->local_path) || !is_readable($data->local_path)) {
                 return response()->json(['status' => false, 'message' => 'File PDF tidak ditemukan di server'], 404);
             }
 
@@ -481,6 +430,45 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             Log::error("SuratKeteranganAktifMahasiswa downloadPdf error for ID {$id}: " . $th->getMessage());
             return response()->json(['status' => false, 'message' => 'Gagal download PDF', 'error' => $th->getMessage()], 500);
         }
+    }
+
+    private function generateAndSavePdf(int $id): ?string
+    {
+        $data = SuratKeteranganAktifMahasiswa::leftJoin('prodi', 'prodi.id', '=', 'surat_keterangan_aktif_mahasiswa.prodi_id')
+            ->leftJoin('fakultas_prodi', 'fakultas_prodi.prodi_id', '=', 'prodi.id')
+            ->leftJoin('fakultas', 'fakultas.id', '=', 'fakultas_prodi.fakultas_id')
+            ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', 'fakultas.tanda_tangan_id')
+            ->select(
+                'surat_keterangan_aktif_mahasiswa.*',
+                'prodi.nama as nama_prodi',
+                'prodi.alias as alias_prodi',
+                'prodi.nama_kepala as nama_kepala_prodi',
+                'prodi.nidn_kepala as nidn_kepala_prodi',
+                'fakultas.nama as fakultas',
+                'fakultas.dekan as dekan',
+                'fakultas.nidn_dekan as nidn_dekan',
+                \DB::raw('COALESCE(tanda_tangan.tdd, tanda_tangan.gambar) as ttd')
+            )
+            ->where('surat_keterangan_aktif_mahasiswa.id', $id)
+            ->first();
+
+        if (!$data) {
+            return null;
+        }
+
+        $pdfData = $this->buildPdfData($data);
+        $prodiFolder = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($data->nama_prodi ?? 'UMUM');
+        $directory = SuratService::resolvePdfDirectory($prodiFolder, 'SuratKeteranganAktifMahasiswaController');
+        $pdf = Pdf::loadView('pdf.surat_aktif', $pdfData)->setPaper('a4', 'portrait');
+        $safeNim = SuratService::sanitizeFileSegment($data->nim ?? null, (string) $data->id);
+        $fileName = 'surat_keterangan_aktif_mahasiswa_' . $safeNim . '_' . uniqid() . '.pdf';
+
+        $path = $directory . $fileName;
+        $pdf->save($path);
+
+        SuratKeteranganAktifMahasiswa::where('id', $data->id)->update(['local_path' => $path]);
+
+        return $data->nama_prodi ?? 'UMUM';
     }
 
     private function buildPdfData($data)
@@ -509,6 +497,24 @@ class SuratKeteranganAktifMahasiswaController extends Controller
         $kopPath = base_path('../public_html/img/kop.jpg');
         $kopBase64 = SuratService::getBase64Image($kopPath);
 
+        $finalPejabat = !empty($data->ketua) ? $data->ketua : ($data->nama_kepala_prodi ? $data->nama_kepala_prodi : $data->dekan);
+        $finalNidn = !empty($data->nidn) ? $data->nidn : ($data->nama_kepala_prodi ? $data->nidn_kepala_prodi : $data->nidn_dekan);
+        if (empty($finalPejabat) || empty($finalNidn)) {
+            $fallbackSigner = SuratService::resolveSigner('SKAM', [
+                'prodi_id' => $data->prodi_id ?? null,
+                'ketua' => $finalPejabat,
+                'nidn' => $finalNidn,
+            ]);
+            if (empty($finalPejabat)) {
+                $finalPejabat = $fallbackSigner['ketua'] ?? null;
+            }
+            if (empty($finalNidn)) {
+                $finalNidn = $fallbackSigner['nidn'] ?? null;
+            }
+        }
+
+        $kodeDosen = \App\Services\DosenService::findKodeDosen($finalNidn, $finalPejabat);
+
         return [
             'prodi_id' => $data->prodi_id,
             'nomor_surat' => $data->nomor_surat,
@@ -532,11 +538,12 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             'nidn_kepala_prodi' => $data->nidn_kepala_prodi,
             'ketua' => $data->ketua,
             'nidn' => $data->nidn,
-            'kprodi' => !empty($data->ketua) ? $data->ketua : ($data->nama_kepala_prodi ? $data->nama_kepala_prodi : $data->dekan),
-            'nidn_kprodi' => !empty($data->nidn) ? $data->nidn : ($data->nama_kepala_prodi ? $data->nidn_kepala_prodi : $data->nidn_dekan),
-            'dekan' => !empty($data->ketua) ? $data->ketua : ($data->nama_kepala_prodi ? $data->nama_kepala_prodi : $data->dekan),
+            'kprodi' => $finalPejabat,
+            'nidn_kprodi' => $finalNidn,
+            'dekan' => $finalPejabat,
             'fakultas' => $data->fakultas,
-            'nidn_dekan' => !empty($data->nidn) ? $data->nidn : ($data->nama_kepala_prodi ? $data->nidn_kepala_prodi : $data->nidn_dekan),
+            'nidn_dekan' => $finalNidn,
+            'kode_dosen' => $kodeDosen,
             'kopBase64' => $kopBase64,
             'stempel' => $stempelBase64,
             'petanda_tangan' => $data->petanda_tangan ?? ($petandaTangan ?? 'tidak'),

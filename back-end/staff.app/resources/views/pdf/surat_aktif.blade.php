@@ -101,6 +101,9 @@
         }
         $finalKprodi = $finalDekan;
         $finalNidnKprodi = $finalNidnDekan;
+        if (!isset($kode_dosen)) {
+            $kode_dosen = \App\Services\DosenService::findKodeDosen($finalNidnKprodi, $dekan ?? $finalKprodi);
+        }
         @endphp
 
         <!-- DATA PEJABAT -->
@@ -113,7 +116,7 @@
             <tr>
                 <td>NIY</td>
                 <td>:</td>
-                <td>{{ $nidn_dekan ?? $finalNidnKprodi }}</td>
+                <td>{{ $kode_dosen ?? '-' }}</td>
             </tr>
             <tr>
                 <td>Jabatan</td>

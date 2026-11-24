@@ -41,21 +41,15 @@ class DosenService
         return trim(rtrim($result, ", \t\n\r\0\x0B"));
     }
 
-    /**
-     * Memastikan string nama dosen seragam: nama berhuruf Capitalize (Title Case, misal: JAUDI -> Jaudi), tapi gelar tidak.
-     * Contoh input:
-     * - "Dr. JAUDI, M.Pd.I," -> "Dr. Jaudi, M.Pd.I"
-     * - "Faishol Ahmad, M.Pd." -> "Faishol Ahmad, M.Pd."
-     * - "Reiza Praselanova S.Kom M.I.Kom" -> "Reiza Praselanova, S.Kom M.I.Kom"
-     */
-    public static function formatNamaCapitalWithGelar($name)
-    {
-        $name = trim($name ?? '', " \t\n\r\0\x0B,");
-        if (empty($name)) {
-            return '';
-        }
+    private static array $kodeCache = [];
 
-        // 1. Ekstrak Gelar Depan (Prof., Dr., Drs., Dra., Ir., H., Hj., K.H., Ust., Gus)
+    /**
+     * Memecah string nama lengkap menjadi gelar depan, nama utama, dan gelar belakang.
+     *
+     * @return array{gelar_depan: string, nama_utama: string, gelar_belakang: string}
+     */
+    private static function parseNamaAndGelar(string $name): array
+    {
         $gelarDepan = '';
         $namaTanpaGelarDepan = $name;
 
@@ -69,7 +63,6 @@ class DosenService
             }
         }
 
-        // 2. Pisahkan Nama Utama dengan Gelar Belakang
         $namaUtama = '';
         $gelarBelakang = '';
 
@@ -88,6 +81,32 @@ class DosenService
                 $gelarBelakang = '';
             }
         }
+
+        return [
+            'gelar_depan' => $gelarDepan,
+            'nama_utama' => $namaUtama,
+            'gelar_belakang' => $gelarBelakang,
+        ];
+    }
+
+    /**
+     * Memastikan string nama dosen seragam: nama berhuruf Capitalize (Title Case, misal: JAUDI -> Jaudi), tapi gelar tidak.
+     * Contoh input:
+     * - "Dr. JAUDI, M.Pd.I," -> "Dr. Jaudi, M.Pd.I"
+     * - "Faishol Ahmad, M.Pd." -> "Faishol Ahmad, M.Pd."
+     * - "Reiza Praselanova S.Kom M.I.Kom" -> "Reiza Praselanova, S.Kom M.I.Kom"
+     */
+    public static function formatNamaCapitalWithGelar($name)
+    {
+        $name = trim($name ?? '', " \t\n\r\0\x0B,");
+        if (empty($name)) {
+            return '';
+        }
+
+        $parsed = self::parseNamaAndGelar($name);
+        $gelarDepan = $parsed['gelar_depan'];
+        $namaUtama = $parsed['nama_utama'];
+        $gelarBelakang = $parsed['gelar_belakang'];
 
         // 3. Ubah nama utama menjadi CAPITALIZE / Title Case (JAUDI -> Jaudi)
         $namaUtamaCapitalize = mb_convert_case(mb_strtolower($namaUtama, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
@@ -129,7 +148,12 @@ class DosenService
     public static function searchDosen($search = '')
     {
         $apiKey = config('simkeu.simkeu_api_key');
-        $url = config('simkeu.simkeu_url') . "dosen-staff";
+        $baseUrl = config('simkeu.simkeu_url');
+        if (empty($baseUrl)) {
+            return [];
+        }
+
+        $url = $baseUrl . "dosen-staff";
         
         if (!empty($search)) {
             $url .= "?search=" . urlencode($search);
@@ -153,7 +177,7 @@ class DosenService
         \Illuminate\Support\Facades\Log::info("DosenService Error: $err");
         \Illuminate\Support\Facades\Log::info("DosenService Response: $response");
 
-        $decoded = json_decode($response);
+        $decoded = is_string($response) ? json_decode($response) : null;
         if (is_object($decoded) && isset($decoded->data)) {
             $data = $decoded->data;
             if (is_array($data)) {
@@ -181,5 +205,78 @@ class DosenService
             return $data;
         }
         return [];
+    }
+
+    /**
+     * Mencari kolom `kode` (NIY) dosen dari API SIAKAD berdasarkan NIDN atau nama dosen.
+     */
+    public static function findKodeDosen(?string $nidn = null, ?string $nama = null): ?string
+    {
+        $cleanNidn = preg_replace('/\s+/', '', trim((string) ($nidn ?? '')));
+        $cleanNama = trim((string) ($nama ?? ''));
+        if ($cleanNidn === '' && $cleanNama === '') {
+            return null;
+        }
+
+        $cacheKey = $cleanNidn . '|' . strtolower($cleanNama);
+        if (array_key_exists($cacheKey, self::$kodeCache)) {
+            return self::$kodeCache[$cacheKey];
+        }
+
+        $extractField = static function ($item, string $key): ?string {
+            $val = is_object($item) ? ($item->{$key} ?? null) : (is_array($item) ? ($item[$key] ?? null) : null);
+            return $val !== null && trim((string) $val) !== '' ? trim((string) $val) : null;
+        };
+
+        // 1. Cari berdasarkan NIDN (paling akurat karena pencocokan langsung mst_dosen.nidn)
+        if ($cleanNidn !== '') {
+            $results = self::searchDosen($cleanNidn);
+            foreach ($results as $dosen) {
+                $itemNidn = preg_replace('/\s+/', '', (string) ($extractField($dosen, 'nidn') ?? ''));
+                $itemKode = $extractField($dosen, 'kode');
+                if ($itemNidn === $cleanNidn && $itemKode !== null) {
+                    return self::$kodeCache[$cacheKey] = $itemKode;
+                }
+            }
+            if (count($results) === 1) {
+                $onlyKode = $extractField($results[0], 'kode');
+                if ($onlyKode !== null) {
+                    return self::$kodeCache[$cacheKey] = $onlyKode;
+                }
+            }
+        }
+
+        // 2. Fallback pencarian berdasarkan nama utama tanpa gelar
+        if ($cleanNama !== '') {
+            $parsed = self::parseNamaAndGelar($cleanNama);
+            $searchKeyword = trim($parsed['nama_utama'] ?: $cleanNama);
+            if ($searchKeyword !== '') {
+                $results = self::searchDosen($searchKeyword);
+                $normalize = static fn (string $v): string => strtolower((string) preg_replace('/\s+/', ' ', trim($v)));
+                $targetNorm = $normalize($searchKeyword);
+                $fullNorm = $normalize($cleanNama);
+
+                foreach ($results as $dosen) {
+                    $itemKode = $extractField($dosen, 'kode');
+                    if ($itemKode === null) {
+                        continue;
+                    }
+                    $namaAsli = $normalize($extractField($dosen, 'nama_asli') ?? '');
+                    $namaGelar = $normalize($extractField($dosen, 'nama_gelar') ?? ($extractField($dosen, 'nama') ?? ''));
+                    if ($namaAsli === $targetNorm || $namaGelar === $fullNorm || str_contains($namaAsli, $targetNorm)) {
+                        return self::$kodeCache[$cacheKey] = $itemKode;
+                    }
+                }
+
+                if (count($results) === 1) {
+                    $onlyKode = $extractField($results[0], 'kode');
+                    if ($onlyKode !== null) {
+                        return self::$kodeCache[$cacheKey] = $onlyKode;
+                    }
+                }
+            }
+        }
+
+        return self::$kodeCache[$cacheKey] = null;
     }
 }
