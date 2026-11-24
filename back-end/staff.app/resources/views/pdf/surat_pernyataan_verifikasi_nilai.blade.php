@@ -142,6 +142,11 @@
             if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
             if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
         }
+        $dosenIdentity = \App\Services\DosenService::findDosenIdentity($finalNidn, $finalKepala);
+        if (!empty($dosenIdentity['matched']) && !empty($dosenIdentity['nidn'])) {
+            $finalNidn = $dosenIdentity['nidn'];
+        }
+        $finalNiy = !empty($dosenIdentity['kode']) ? $dosenIdentity['kode'] : ($niy ?? null);
     @endphp
 
     <!-- DATA PENANDATANGAN -->
@@ -154,7 +159,7 @@
         <tr>
             <td class="label">NIDN / NIY</td>
             <td>:</td>
-            <td>{{ !empty($finalNidn) ? $finalNidn : ($niy ?? '-') }}</td>
+            <td>{{ !empty($finalNidn) ? $finalNidn : ($finalNiy ?? '-') }}</td>
         </tr>
         <tr>
             <td class="label">Jabatan</td>
@@ -219,6 +224,11 @@
         if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
         if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
     }
+    $dosenIdentity = \App\Services\DosenService::findDosenIdentity($finalNidn, $finalKepala);
+    if (!empty($dosenIdentity['matched']) && !empty($dosenIdentity['nidn'])) {
+        $finalNidn = $dosenIdentity['nidn'];
+    }
+    $finalNiy = !empty($dosenIdentity['kode']) ? $dosenIdentity['kode'] : ($niy ?? null);
 @endphp
                 <div class="nama-ttd" style="margin-top:4px;">
                     {{ $finalKepala }}
@@ -226,7 +236,7 @@
                 @if(!empty($finalNidn))
                 <div style="margin-top:2px; font-size:10pt;">NIDN. {{ $finalNidn }}</div>
                 @endif
-                NIY : {{ $niy ?? '-' }}
+                NIY : {{ $finalNiy ?? '-' }}
             </td>
         </tr>
     </table>

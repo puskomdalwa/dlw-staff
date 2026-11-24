@@ -220,6 +220,7 @@
         if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
         if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
     }
+    $finalNidn = \App\Services\DosenService::resolveNidn($finalNidn, $finalKepala);
 @endphp
                 <div class="nama-pejabat">{{ $finalKepala }}</div>
                 @if(!empty($finalNidn))

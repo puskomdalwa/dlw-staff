@@ -356,9 +356,23 @@ class SuratService
             $ketua = \App\Services\DosenService::formatNamaCapitalWithGelar($ketua);
         }
 
+        $kode = null;
+        if (class_exists(\App\Services\DosenService::class)) {
+            $dosenIdentity = \App\Services\DosenService::findDosenIdentity($nidn ?: null, $ketua ?: null);
+            if (!empty($dosenIdentity['matched'])) {
+                if (!empty($dosenIdentity['nidn'])) {
+                    $nidn = $dosenIdentity['nidn'];
+                }
+                if (!empty($dosenIdentity['kode'])) {
+                    $kode = $dosenIdentity['kode'];
+                }
+            }
+        }
+
         return [
             'ketua' => $ketua ?: null,
             'nidn'  => $nidn ?: null,
+            'kode'  => $kode ?: null,
         ];
     }
 

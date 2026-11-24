@@ -136,7 +136,7 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             $skam->jenis_kelamin  = Auth::user()->jenis_kelamin;
             $skam->status         = 'pending';
             
-            $signer = \App\Services\SuratService::resolveSigner('SKAM', [
+            $signer = $this->resolveSkamSigner([
                 'prodi_id' => $validate['prodi_id'] ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? null,
                 'ketua' => $validate['ketua'] ?? null,
@@ -339,7 +339,7 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             $skam->drive_link = null;
             $skam->status = 'pending';
             
-            $signer = \App\Services\SuratService::resolveSigner('SKAM', [
+            $signer = $this->resolveSkamSigner([
                 'prodi_id' => $validate['prodi_id'] ?? $skam->prodi_id ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? null,
                 'ketua' => $validate['ketua'] ?? null,
@@ -430,6 +430,14 @@ class SuratKeteranganAktifMahasiswaController extends Controller
             Log::error("SuratKeteranganAktifMahasiswa downloadPdf error for ID {$id}: " . $th->getMessage());
             return response()->json(['status' => false, 'message' => 'Gagal download PDF', 'error' => $th->getMessage()], 500);
         }
+    }
+
+    /**
+     * Menentukan nama penandatangan dan mengambil NIDN utama dari DosenService (SIAKAD).
+     */
+    private function resolveSkamSigner(array $params): array
+    {
+        return \App\Services\SuratService::resolveSigner('SKAM', $params);
     }
 
     private function generateAndSavePdf(int $id): ?string

@@ -161,11 +161,16 @@
                     <div style="height: 100px;"></div>
                 @endif
 
+                @php
+                    $finalKepalaSudahSidang = $kepala ?? 'Kuzairi, M.Pd';
+                    $identitySudahSidang = \App\Services\DosenService::findDosenIdentity($nidn ?? null, $finalKepalaSudahSidang);
+                    $finalNiySudahSidang = !empty($identitySudahSidang['kode']) ? $identitySudahSidang['kode'] : ($nidn ?? null);
+                @endphp
                 <div class="nama-ttd">
-                    {{ $kepala ?? 'Kuzairi, M.Pd' }}
+                    {{ $finalKepalaSudahSidang }}
                 </div>
-                @if(!empty($nidn))
-                <div style="margin-top: 2px;">NIY. {{ $nidn }}</div>
+                @if(!empty($finalNiySudahSidang))
+                <div style="margin-top: 2px;">NIY. {{ $finalNiySudahSidang }}</div>
                 @endif
             </td>
         </tr>

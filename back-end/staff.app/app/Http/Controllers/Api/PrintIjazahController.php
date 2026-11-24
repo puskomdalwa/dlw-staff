@@ -125,11 +125,11 @@ class PrintIjazahController extends Controller
 
                 // Dekan (dari fakultas)
                 'nama_dekan'               => $namaFakultas ? ($namaFakultas->dekan ?: 'DEBUG: DEKAN KOSONG DI DB') : 'DEBUG: RELASI FAKULTAS-PRODI TIDAK ADA',
-                'nidn_dekan'               => $namaFakultas && !empty($namaFakultas->nidn_dekan) ? 'NIDN. ' . $namaFakultas->nidn_dekan : '',
+                'nidn_dekan'               => ($nidnDekanResolved = \App\Services\DosenService::resolveNidn($namaFakultas?->nidn_dekan, $namaFakultas?->dekan)) ? 'NIDN. ' . $nidnDekanResolved : '',
 
                 // Rektor (dari setting_jabatan)
                 'nama_rektor'              => $rektor && $rektor->tandaTangan ? ($rektor->tandaTangan->nama ?? '') : '',
-                'nidn_rektor'              => $rektor && !empty($rektor->nidn) ? 'NIDN. ' . $rektor->nidn : '',
+                'nidn_rektor'              => ($nidnRektorResolved = \App\Services\DosenService::resolveNidn($rektor?->nidn, $rektor?->tandaTangan?->nama)) ? 'NIDN. ' . $nidnRektorResolved : '',
 
                 // Kota (bisa dikonfigurasi atau dari prodi)
                 'kota_tempat'              => 'Bangil',

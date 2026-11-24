@@ -338,6 +338,7 @@
         if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
         if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
     }
+    $finalNidn = \App\Services\DosenService::resolveNidn($finalNidn, $finalKepala);
 @endphp
                     <div class="text-bold text-underline">{{ $finalKepala }}</div>
                     @if(!empty($finalNidn))
@@ -448,6 +449,7 @@
         if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
         if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
     }
+    $finalNidn = \App\Services\DosenService::resolveNidn($finalNidn, $finalKepala);
 @endphp
                     <div class="text-bold text-underline">{{ $finalKepala }}</div>
                     @if(!empty($finalNidn))

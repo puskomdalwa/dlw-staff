@@ -285,9 +285,13 @@
                 @else
                     <br><br><br>
                 @endif
-                {{ $skak_aupk_nama ?? 'Dr. Musleh Harry, SH, M.Hum' }}
-                @if(!empty($skak_aupk_nidn))
-                    <br>NIDN/NIY. {{ $skak_aupk_nidn }}
+                @php
+                    $finalSkakAupkNama = $skak_aupk_nama ?? 'Dr. Musleh Harry, SH, M.Hum';
+                    $finalSkakAupkNidn = \App\Services\DosenService::resolveNidn($skak_aupk_nidn ?? null, $finalSkakAupkNama);
+                @endphp
+                {{ $finalSkakAupkNama }}
+                @if(!empty($finalSkakAupkNidn))
+                    <br>NIDN/NIY. {{ $finalSkakAupkNidn }}
                 @endif
             </td>
         </tr>
@@ -580,6 +584,7 @@
         if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
         if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
     }
+    $finalNidn = \App\Services\DosenService::resolveNidn($finalNidn, $finalKepala);
 @endphp
                 {{ $finalKepala }}
                 @if(!empty($finalNidn))

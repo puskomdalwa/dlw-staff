@@ -322,8 +322,11 @@
                 <div style="display: inline-block; min-width: 195px; border-bottom: 1px solid #000; padding-bottom: 2px; font-weight: bold;">
                     {{ !empty($nama_kaprodi) ? $nama_kaprodi : '' }}
                 </div>
-                @if (!empty($nidn_kaprodi))
-                    <div style="font-size: 10.5pt; margin-top: 2px;">NIDN. {{ $nidn_kaprodi }}</div>
+                @php
+                    $finalNidnKaprodi = \App\Services\DosenService::resolveNidn($nidn_kaprodi ?? null, $nama_kaprodi ?? null);
+                @endphp
+                @if (!empty($finalNidnKaprodi))
+                    <div style="font-size: 10.5pt; margin-top: 2px;">NIDN. {{ $finalNidnKaprodi }}</div>
                 @endif
             </td>
         </tr>

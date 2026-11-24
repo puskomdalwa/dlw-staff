@@ -279,6 +279,19 @@ class DosenService
     }
 
     /**
+     * Mengambil NIDN resmi dosen (`mst_dosen.nidn`) dari DosenService dengan fallback ke nilai lokal bila tidak cocok/offline.
+     */
+    public static function resolveNidn(?string $fallbackNidn = null, ?string $nama = null): ?string
+    {
+        $identity = self::findDosenIdentity($fallbackNidn, $nama);
+        if (!empty($identity['matched']) && !empty($identity['nidn'])) {
+            return $identity['nidn'];
+        }
+
+        return !empty($fallbackNidn) ? $fallbackNidn : null;
+    }
+
+    /**
      * Mencari kolom `kode` (NIY) dosen dari API SIAKAD berdasarkan NIDN atau nama dosen.
      */
     public static function findKodeDosen(?string $nidn = null, ?string $nama = null): ?string

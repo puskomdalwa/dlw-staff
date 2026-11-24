@@ -206,6 +206,7 @@
         if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
         if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
     }
+    $finalNidn = \App\Services\DosenService::resolveNidn($finalNidn, $finalKepala);
 @endphp
         <table class="ttd" width="100%" cellpadding="0" cellspacing="0" style="margin-top:30px;">
             <tr>

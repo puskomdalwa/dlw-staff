@@ -99,6 +99,7 @@
             if (empty($finalDekan)) $finalDekan = $fallback['ketua'] ?? '';
             if (empty($finalNidnDekan)) $finalNidnDekan = $fallback['nidn'] ?? '';
         }
+        $finalNidnDekan = \App\Services\DosenService::resolveNidn($finalNidnDekan, $finalDekan);
 
         $rawFak = trim($fakultas ?? '');
         $fakultasText = $rawFak

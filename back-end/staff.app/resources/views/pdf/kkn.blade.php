@@ -188,7 +188,7 @@
 
             <!-- BLOK KANAN -->
             <td width="40%" style="text-align:center;">
-                Pasuruan, {{ }}<br>
+                Pasuruan, {{ $tanggal_surat ?? ($tanggal ?? '') }}<br>
                 Ketua KKN<br>
 
                 <!-- AREA TTD (OVERLAY AMAN) -->
@@ -219,6 +219,7 @@
         if (empty($finalKepala)) $finalKepala = $fallback['ketua'] ?? '';
         if (empty($finalNidn)) $finalNidn = $fallback['nidn'] ?? '';
     }
+    $finalNidn = \App\Services\DosenService::resolveNidn($finalNidn, $finalKepala);
 @endphp
                 <div class="nama-ttd" style="margin-top:4px;">
                     {{ $finalKepala }}

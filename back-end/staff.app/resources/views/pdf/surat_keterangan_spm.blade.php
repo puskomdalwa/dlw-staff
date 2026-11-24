@@ -208,6 +208,7 @@
                                 $finalPengawasNidn = $fallbackSpm->nidn;
                             }
                         }
+                        $finalPengawasNidn = \App\Services\DosenService::resolveNidn($finalPengawasNidn, $finalPengawas);
                     @endphp
                     <div style="margin-top: 5px;">
                         <strong><u>{{ $finalPengawas }}</u></strong>
@@ -248,9 +249,12 @@
                     <div style="margin-top: 5px;">
                         <strong><u>{{ $nama_kepala_prodi }}</u></strong>
                     </div>
-                    @if(!empty($nidn_kepala_prodi))
+                    @php
+                        $finalKaprodiNidn = \App\Services\DosenService::resolveNidn($nidn_kepala_prodi ?? null, $nama_kepala_prodi ?? null);
+                    @endphp
+                    @if(!empty($finalKaprodiNidn))
                     <div style="font-size: 10pt; margin-top: 2px;">
-                        NIDN. {{ $nidn_kepala_prodi }}
+                        NIDN. {{ $finalKaprodiNidn }}
                     </div>
                     @endif
                 </td>

@@ -49,31 +49,31 @@ class PengambilanIjazahSignatureService
             ->whereIn('kunci_jabatan', ['keuangan_pondok', 'bendahara_pondok'])
             ->first();
         $pondokNama = $settingPondok?->tandaTangan?->nama ?: 'Keuangan Pondok';
-        $pondokNidn = $settingPondok?->nidn;
+        $pondokNidn = \App\Services\DosenService::resolveNidn($settingPondok?->nidn, $pondokNama);
 
         $settingBakuKabag = SettingJabatan::with('tandaTangan')
             ->whereIn('kunci_jabatan', ['baku_kabag', 'kabag_baku', 'kabag_keuangan'])
             ->first();
         $bakuKabagNama = $settingBakuKabag?->tandaTangan?->nama ?: 'Kabag BAKU';
-        $bakuKabagNidn = $settingBakuKabag?->nidn;
+        $bakuKabagNidn = \App\Services\DosenService::resolveNidn($settingBakuKabag?->nidn, $bakuKabagNama);
 
         $settingBakuAupk = SettingJabatan::with('tandaTangan')
             ->whereIn('kunci_jabatan', ['baku_aupk', 'kepala_biro_aupk', 'kepala_biro_keuangan'])
             ->first();
         $bakuAupkNama = $settingBakuAupk?->tandaTangan?->nama ?: 'Dr. Musleh Harry, SH, M.Hum';
-        $bakuAupkNidn = $settingBakuAupk?->nidn;
+        $bakuAupkNidn = \App\Services\DosenService::resolveNidn($settingBakuAupk?->nidn, $bakuAupkNama);
 
         $settingBaak = SettingJabatan::with('tandaTangan')
             ->whereIn('kunci_jabatan', ['BAAK', 'ka_baak', 'kepala_baak'])
             ->first();
         $baakNama = $settingBaak?->tandaTangan?->nama ?: 'Kepala BAAK';
-        $baakNidn = $settingBaak?->nidn;
+        $baakNidn = \App\Services\DosenService::resolveNidn($settingBaak?->nidn, $baakNama);
 
         $settingWarek = SettingJabatan::with('tandaTangan')
             ->whereIn('kunci_jabatan', ['warek_1', 'wakil_rektor_1', 'ketua_komprehensif'])
             ->first();
         $warekNama = $settingWarek?->tandaTangan?->nama ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.';
-        $warekNidn = $settingWarek?->nidn;
+        $warekNidn = \App\Services\DosenService::resolveNidn($settingWarek?->nidn, $warekNama);
 
         return [
             [

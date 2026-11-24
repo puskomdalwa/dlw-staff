@@ -519,7 +519,7 @@ class PengajuanJudulController extends Controller
             }
 
             $namaKaprodi = $prodiObj?->nama_kepala ?: ($ttdModel?->nama ?: '');
-            $nidnKaprodi = $prodiObj?->nidn_kepala ?: '';
+            $nidnKaprodi = \App\Services\DosenService::resolveNidn($prodiObj?->nidn_kepala ?: '', $namaKaprodi) ?? '';
             $prodiDisplay = $prodiObj?->nama ?: $pj->prodi;
 
             $tanggalFormatted = !empty($pj->tanggal)

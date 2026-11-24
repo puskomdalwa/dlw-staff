@@ -56,25 +56,25 @@ class Sk6SignatureService
             ->whereIn('kunci_jabatan', ['baku_kabag', 'kabag_baku', 'kabag_keuangan'])
             ->first();
         $bakuKabagNama = $settingBakuKabag?->tandaTangan?->nama ?: 'Kabag BAKU';
-        $bakuKabagNidn = $settingBakuKabag?->nidn;
+        $bakuKabagNidn = \App\Services\DosenService::resolveNidn($settingBakuKabag?->nidn, $bakuKabagNama);
 
         $settingBakuAupk = SettingJabatan::with('tandaTangan')
             ->whereIn('kunci_jabatan', ['baku_aupk', 'kepala_biro_aupk', 'kepala_biro_keuangan'])
             ->first();
         $bakuAupkNama = $settingBakuAupk?->tandaTangan?->nama ?: 'Dr. Musleh Harry, SH, M.Hum';
-        $bakuAupkNidn = $settingBakuAupk?->nidn;
+        $bakuAupkNidn = \App\Services\DosenService::resolveNidn($settingBakuAupk?->nidn, $bakuAupkNama);
 
         $settingKkn = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'ketua_tasma')->first();
         $kknNama = $settingKkn?->tandaTangan?->nama ?: 'Achmad Djuaini, M.Pd';
-        $kknNidn = $settingKkn?->nidn;
+        $kknNidn = \App\Services\DosenService::resolveNidn($settingKkn?->nidn, $kknNama);
 
         $settingKompre = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'ketua_komprehensif')->first();
         $idarohNama = $settingKompre?->tandaTangan?->nama ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.';
-        $idarohNidn = $settingKompre?->nidn;
+        $idarohNidn = \App\Services\DosenService::resolveNidn($settingKompre?->nidn, $idarohNama);
 
         $settingQa = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'ketua_qismul_aman')->first();
         $qaNama = $settingQa?->tandaTangan?->nama ?: 'Ust. Fathul Munif';
-        $qaNidn = $settingQa?->nidn;
+        $qaNidn = \App\Services\DosenService::resolveNidn($settingQa?->nidn, $qaNama);
 
         return [
             [
@@ -322,7 +322,7 @@ class Sk6SignatureService
         $defKkn = $defaults->get('kkn');
         $kknTitle = $defKkn['title'] ?? 'Ketua TASMA, KKN & PPL';
         $kknNama = $defKkn['signer_name'] ?: ($sk6->skTasmaKknPpl?->ketua ?: 'Achmad Djuaini, M.Pd');
-        $kknNidn = $defKkn['signer_nidn'] ?? $sk6->skTasmaKknPpl?->nidn;
+        $kknNidn = \App\Services\DosenService::resolveNidn($defKkn['signer_nidn'] ?? $sk6->skTasmaKknPpl?->nidn, $kknNama);
 
         $skukd = $sk6->skUjianKomprehensifDiniyah;
         $defIdaroh = $defaults->get('idaroh_syuun');
@@ -335,12 +335,12 @@ class Sk6SignatureService
         if (empty($idarohNama)) {
             $idarohNama = $skukd?->koor_komprehensif ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.';
         }
-        $idarohNidn = $defIdaroh['signer_nidn'] ?? $skukd?->nidn;
+        $idarohNidn = \App\Services\DosenService::resolveNidn($defIdaroh['signer_nidn'] ?? $skukd?->nidn, $idarohNama);
 
         $defQa = $defaults->get('keamanan');
         $qaTitle = $defQa['title'] ?? 'Ketua Qismul Aman';
         $qaNama = $defQa['signer_name'] ?: ($sk6->skQismulAman?->ketua ?: 'Ust. Fathul Munif');
-        $qaNidn = $defQa['signer_nidn'] ?? $sk6->skQismulAman?->nidn;
+        $qaNidn = \App\Services\DosenService::resolveNidn($defQa['signer_nidn'] ?? $sk6->skQismulAman?->nidn, $qaNama);
 
         return [
             [
