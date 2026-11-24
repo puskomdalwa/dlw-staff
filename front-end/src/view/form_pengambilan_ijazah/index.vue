@@ -274,7 +274,15 @@ export default defineComponent({
       customNotes.value = "";
     }
 
+    function canSignInStaff(step: any) {
+      if (typeof step.can_sign_in_staff === "boolean") {
+        return step.can_sign_in_staff;
+      }
+      return step.step_key === "keuangan_pondok";
+    }
+
     function toggleEditStep(step: any) {
+      if (!canSignInStaff(step)) return;
       if (editingStepKey.value === step.step_key) {
         editingStepKey.value = null;
         customSignerName.value = "";
@@ -705,6 +713,7 @@ export default defineComponent({
       customNotes,
       openTimeline,
       closeTimelineModal,
+      canSignInStaff,
       toggleEditStep,
       confirmSignature,
       revokeSignature,
@@ -1372,7 +1381,7 @@ export default defineComponent({
                         </div>
 
                         <div
-                          v-if="editingStepKey === step.step_key"
+                          v-if="canSignInStaff(step) && editingStepKey === step.step_key"
                           class="mt-3 pt-2 border-top"
                         >
                           <div class="row g-2">
@@ -1404,46 +1413,55 @@ export default defineComponent({
                         <div
                           class="mt-3 d-flex align-items-center gap-2 flex-wrap"
                         >
-                          <template v-if="!step.is_signed">
-                            <button
-                              class="btn btn-sm btn-success btn-wave"
-                              :disabled="actionStepLoading === step.step_key"
-                              @click="confirmSignature(step)"
-                            >
-                              <span
-                                v-if="actionStepLoading === step.step_key"
-                                class="spinner-border spinner-border-sm me-1"
-                              ></span>
-                              <i v-else class="ri-check-double-line me-1"></i>
-                              Konfirmasi / Centang TTD QR
-                            </button>
-                            <button
-                              class="btn btn-sm btn-light border"
-                              type="button"
-                              @click="toggleEditStep(step)"
-                            >
-                              <i class="ri-edit-2-line me-1"></i>
-                              {{
-                                editingStepKey === step.step_key
-                                  ? "Tutup Opsi"
-                                  : "Ubah Nama / Catatan"
-                              }}
-                            </button>
+                          <template v-if="canSignInStaff(step)">
+                            <template v-if="!step.is_signed">
+                              <button
+                                class="btn btn-sm btn-success btn-wave"
+                                :disabled="actionStepLoading === step.step_key"
+                                @click="confirmSignature(step)"
+                              >
+                                <span
+                                  v-if="actionStepLoading === step.step_key"
+                                  class="spinner-border spinner-border-sm me-1"
+                                ></span>
+                                <i v-else class="ri-check-double-line me-1"></i>
+                                Konfirmasi / Centang TTD QR
+                              </button>
+                              <button
+                                class="btn btn-sm btn-light border"
+                                type="button"
+                                @click="toggleEditStep(step)"
+                              >
+                                <i class="ri-edit-2-line me-1"></i>
+                                {{
+                                  editingStepKey === step.step_key
+                                    ? "Tutup Opsi"
+                                    : "Ubah Nama / Catatan"
+                                }}
+                              </button>
+                            </template>
+                            <template v-else>
+                              <button
+                                class="btn btn-sm btn-outline-danger"
+                                :disabled="actionStepLoading === step.step_key"
+                                @click="revokeSignature(step)"
+                              >
+                                <span
+                                  v-if="actionStepLoading === step.step_key"
+                                  class="spinner-border spinner-border-sm me-1"
+                                ></span>
+                                <i v-else class="ri-close-circle-line me-1"></i>
+                                Batalkan TTD
+                              </button>
+                            </template>
                           </template>
-                          <template v-else>
-                            <button
-                              class="btn btn-sm btn-outline-danger"
-                              :disabled="actionStepLoading === step.step_key"
-                              @click="revokeSignature(step)"
-                            >
-                              <span
-                                v-if="actionStepLoading === step.step_key"
-                                class="spinner-border spinner-border-sm me-1"
-                              ></span>
-                              <i v-else class="ri-close-circle-line me-1"></i>
-                              Batalkan TTD
-                            </button>
-                          </template>
+                          <span
+                            v-else
+                            class="badge bg-light text-secondary border fw-normal py-2 px-2"
+                          >
+                            <i class="ri-external-link-line me-1"></i>
+                            TTD dilakukan via website pihak terkait (eksternal)
+                          </span>
                         </div>
                       </div>
                     </div>

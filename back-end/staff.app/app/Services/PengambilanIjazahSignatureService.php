@@ -31,6 +31,15 @@ class PengambilanIjazahSignatureService
         'warek_1' => 'Warek I',
     ];
 
+    public const STAFF_SIGNABLE_STEPS = [
+        'keuangan_pondok',
+    ];
+
+    public function isStaffSignableStep(string $stepKey): bool
+    {
+        return in_array($stepKey, self::STAFF_SIGNABLE_STEPS, true);
+    }
+
     /**
      * Fallback defaults sourced from setting_jabatan / module presets.
      */
@@ -319,6 +328,7 @@ class PengambilanIjazahSignatureService
                 'signer_nidn' => $step->signer_nidn,
                 'status' => $step->status,
                 'is_signed' => $step->status === 'approved',
+                'can_sign_in_staff' => $this->isStaffSignableStep($step->step_key),
                 'signed_at' => $step->signed_at?->toIso8601String(),
                 'signed_at_formatted' => $step->signed_at
                     ? $step->signed_at->timezone('Asia/Jakarta')->locale('id')->translatedFormat('d F Y H:i') . ' WIB'

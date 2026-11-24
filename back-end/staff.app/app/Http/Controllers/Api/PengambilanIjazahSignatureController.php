@@ -67,6 +67,13 @@ class PengambilanIjazahSignatureController extends Controller
      */
     public function confirm(Request $request, $id, string $stepKey)
     {
+        if (!$this->signatureService->isStaffSignableStep($stepKey)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tahap ini hanya dapat ditandatangani melalui website pihak terkait (eksternal).',
+            ], 403);
+        }
+
         $form = FormPengambilanIjazah::find($id);
         if (!$form) {
             return response()->json([
@@ -127,6 +134,13 @@ class PengambilanIjazahSignatureController extends Controller
      */
     public function revoke($id, string $stepKey)
     {
+        if (!$this->signatureService->isStaffSignableStep($stepKey)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Tahap ini hanya dapat dibatalkan melalui website pihak terkait (eksternal).',
+            ], 403);
+        }
+
         $form = FormPengambilanIjazah::find($id);
         if (!$form) {
             return response()->json([

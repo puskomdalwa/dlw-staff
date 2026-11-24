@@ -98,6 +98,10 @@ class PengambilanIjazahSignatureTest extends TestCase
             ['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'],
             array_column($indexSteps, 'step_key')
         );
+        $this->assertSame(
+            [true, false, false, false, false],
+            array_column($indexSteps, 'can_sign_in_staff')
+        );
 
         // 3. Download PDF before all 5/5 signed is blocked (422)
         $blockedPdf = $this->actingAs($user, 'sanctum')
@@ -115,7 +119,7 @@ class PengambilanIjazahSignatureTest extends TestCase
         // Unauthenticated external access rejected
         $this->getJson('/api/external/form-pengambilan-ijazah')->assertStatus(401);
 
-        // 5. Sign steps 1, 2 & 3 internally (Keu. Pondok -> BAKU Kabag -> BAKU AUPK)
+        // 5. Only Keuangan Pondok can be signed internally from web staff; external steps are blocked (403)
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/keuangan_pondok/confirm", [
                 'signer_name' => 'Ust. Keuangan Pondok',
@@ -125,28 +129,38 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertJsonPath('data.signed_count', 1)
             ->assertJsonPath('data.is_completed', false);
 
-        $this->actingAs($user, 'sanctum')
-            ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/baku_kabag/confirm", [
-                'signer_name' => 'Kabag BAKU Test',
-            ])
-            ->assertStatus(200)
-            ->assertJsonPath('data.signed_count', 2)
-            ->assertJsonPath('data.is_completed', false);
-
-        $this->actingAs($user, 'sanctum')
-            ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/baku_aupk/confirm", [
-                'signer_name' => 'Dr. Musleh Harry, SH, M.Hum',
-            ])
-            ->assertStatus(200)
-            ->assertJsonPath('data.signed_count', 3)
-            ->assertJsonPath('data.is_completed', false);
+        foreach (['baku_kabag', 'baku_aupk', 'baak', 'warek_1'] as $externalStep) {
+            $this->actingAs($user, 'sanctum')
+                ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/{$externalStep}/confirm")
+                ->assertStatus(403);
+        }
 
         // Still not 5/5: no signed Drive job yet
         Queue::assertNotPushed(UploudSuratToDrive::class, function ($job) {
             return $job->isSignedSk6 === true;
         });
 
-        // 6. Sign steps 4 & 5 via External API
+        // 6. Sign steps 2, 3, 4 & 5 via External API
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson('/api/external/form-pengambilan-ijazah/by-nim/202285290099/sign', [
+                'step_key' => 'baku_kabag',
+                'signer_name' => 'Kabag BAKU Test',
+                'source' => 'web-keuangan',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.form.signed_count', 2)
+            ->assertJsonPath('data.form.is_completed', false);
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson('/api/external/form-pengambilan-ijazah/by-nim/202285290099/sign', [
+                'step_key' => 'baku_aupk',
+                'signer_name' => 'Dr. Musleh Harry, SH, M.Hum',
+                'source' => 'web-keuangan',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.form.signed_count', 3)
+            ->assertJsonPath('data.form.is_completed', false);
+
         $this->withHeaders(['X-API-Key' => $apiKey])
             ->postJson('/api/external/form-pengambilan-ijazah/by-nim/202285290099/sign', [
                 'step_key' => 'baak',
@@ -484,9 +498,13 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $formA->id);
 
-        // Internal UI revoke and external API revoke both work cleanly
+        // Internal UI revoke is blocked for external-only steps (403) and allowed for Keuangan Pondok; external API revoke works
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/baku_aupk/revoke")
+            ->assertStatus(403);
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/revoke", ['step_key' => 'baku_aupk'])
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 2);
 
@@ -495,8 +513,8 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 1);
 
-        $this->withHeaders(['X-API-Key' => $apiKey])
-            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/revoke", ['step_key' => 'keuangan_pondok'])
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/keuangan_pondok/revoke")
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 0);
 

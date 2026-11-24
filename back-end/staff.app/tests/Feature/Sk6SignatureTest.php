@@ -169,24 +169,33 @@ class Sk6SignatureTest extends TestCase
         $this->assertSame('BAKU AUPK', $steps[4]['short_label']);
         $this->assertSame('Idaroh Syuun', $steps[5]['title']);
         $this->assertSame('Idaroh Syuun', $steps[5]['short_label']);
+        $this->assertSame([false, false, true, false, false, true], array_column($steps, 'can_sign_in_staff'));
 
+        // External-only steps cannot be signed directly from web staff (403)
+        foreach (['kaprodi', 'kkn', 'baku_kabag', 'baku_aupk'] as $externalStep) {
+            $this->actingAs($user, 'sanctum')
+                ->postJson("/api/sk6/{$sk6->id}/signatures/{$externalStep}/confirm")
+                ->assertStatus(403);
+        }
+
+        // Keamanan & Idaroh Syuun CAN be signed and revoked directly from web staff
         $confirm = $this->actingAs($user, 'sanctum')
-            ->postJson("/api/sk6/{$sk6->id}/signatures/kaprodi/confirm", [
+            ->postJson("/api/sk6/{$sk6->id}/signatures/keamanan/confirm", [
                 'notes' => 'Disetujui langsung di web staff',
             ]);
         $confirm->assertStatus(200)
             ->assertJsonPath('status', true)
             ->assertJsonPath('data.signed_count', 1);
 
-        $token = $confirm->json('data.steps.0.signature_token');
+        $token = $confirm->json('data.steps.2.signature_token');
         $this->assertNotEmpty($token);
-        $this->assertStringStartsWith('data:image/png;base64,', $confirm->json('data.steps.0.qr_data_uri'));
+        $this->assertStringStartsWith('data:image/png;base64,', $confirm->json('data.steps.2.qr_data_uri'));
 
         // Public QR verification endpoints
         $this->getJson("/api/sk6/verify/{$token}")
             ->assertStatus(200)
             ->assertJsonPath('verified', true)
-            ->assertJsonPath('data.step_key', 'kaprodi');
+            ->assertJsonPath('data.step_key', 'keamanan');
 
         $this->get("/verify/sk6/{$token}")
             ->assertStatus(200)
@@ -194,8 +203,19 @@ class Sk6SignatureTest extends TestCase
 
         // Revoke back to pending
         $revoke = $this->actingAs($user, 'sanctum')
-            ->postJson("/api/sk6/{$sk6->id}/signatures/kaprodi/revoke");
+            ->postJson("/api/sk6/{$sk6->id}/signatures/keamanan/revoke");
         $revoke->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 0);
+
+        // Idaroh Syuun also signable & revocable in web staff
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/sk6/{$sk6->id}/signatures/idaroh_syuun/confirm")
+            ->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 1);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/sk6/{$sk6->id}/signatures/idaroh_syuun/revoke")
+            ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 0);
 
         $sk6->refresh();
@@ -509,14 +529,18 @@ class Sk6SignatureTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.sk6.signed_count', 5);
 
-        // Internal UI revoke and external API revoke both work cleanly
+        // Internal UI revoke is blocked for external-only steps (403) and allowed for staff steps; external API revoke works
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/sk6/{$sk6A->id}/signatures/baku_aupk/revoke")
+            ->assertStatus(403);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/sk6/{$sk6A->id}/signatures/keamanan/revoke")
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 4);
 
         $this->withHeader('X-API-Key', $apiKey)
-            ->postJson("/api/external/sk6/{$sk6A->id}/revoke", ['step_key' => 'baku_kabag'])
+            ->postJson("/api/external/sk6/{$sk6A->id}/revoke", ['step_key' => 'baku_aupk'])
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 3);
 
