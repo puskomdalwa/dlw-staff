@@ -134,11 +134,11 @@ class SuratKeteranganSudahSidangController extends Controller
             $surat->nim           = $validate['nim'];
             $surat->prodi         = $validate['prodi'];
             $surat->prodi_id      = $validate['prodi_id'] ?? null;
-            $surat->tanggal_sidang= $validate['tanggal_sidang'];
+            $surat->tanggal_sidang = $validate['tanggal_sidang'];
             $surat->tanggal       = $validate['tanggal'];
             $surat->kepala        = $signer['ketua'] ?? ($validate['kepala'] ?? 'Kuzairi, M.Pd');
             $surat->nidn          = $signer['nidn'] ?? ($validate['nidn'] ?? '80283');
-            $surat->petanda_tangan= $validate['petanda_tangan'] ?? 'tidak';
+            $surat->petanda_tangan = $validate['petanda_tangan'] ?? 'tidak';
             $surat->user_id       = Auth::user()->id;
             $surat->jenis_kelamin = Auth::user()->jenis_kelamin;
             $surat->status        = 'pending';
@@ -333,11 +333,11 @@ class SuratKeteranganSudahSidangController extends Controller
             $surat->nim           = $validate['nim'];
             $surat->prodi         = $validate['prodi'];
             $surat->prodi_id      = $validate['prodi_id'] ?? null;
-            $surat->tanggal_sidang= $validate['tanggal_sidang'];
+            $surat->tanggal_sidang = $validate['tanggal_sidang'];
             $surat->tanggal       = $validate['tanggal'];
             $surat->kepala        = $signer['ketua'] ?? ($validate['kepala'] ?? 'Kuzairi, M.Pd');
             $surat->nidn          = $signer['nidn'] ?? ($validate['nidn'] ?? '80283');
-            $surat->petanda_tangan= $validate['petanda_tangan'] ?? 'tidak';
+            $surat->petanda_tangan = $validate['petanda_tangan'] ?? 'tidak';
             $surat->drive_file_id = null;
             $surat->drive_link    = null;
             $surat->status        = 'pending';
@@ -505,7 +505,7 @@ class SuratKeteranganSudahSidangController extends Controller
             'nim'                     => $data->nim,
             'prodi'                   => $data->prodi,
             'tanggal_sidang'          => $data->tanggal_sidang,
-            'tanggal_sidang_formatted'=> $tanggalSidangIndo,
+            'tanggal_sidang_formatted' => $tanggalSidangIndo,
             'tanggal'                 => $data->tanggal,
             'tanggal_surat_formatted' => $tanggalSuratIndo,
             'kepala'                  => $data->kepala ?? 'Kuzairi, M.Pd',
@@ -518,4 +518,3 @@ class SuratKeteranganSudahSidangController extends Controller
         ];
     }
 }
-

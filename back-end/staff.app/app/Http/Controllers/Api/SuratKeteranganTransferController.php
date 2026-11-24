@@ -138,7 +138,7 @@ class SuratKeteranganTransferController extends Controller
             $skt->petanda_tangan  = $validate['petanda_tangan'] ?? 'tidak';
             $skt->jenis_kelamin = Auth::user()->jenis_kelamin;
             $skt->status = 'pending';
-            
+
             $signer = \App\Services\SuratService::resolveSigner('SKM', [
                 'prodi_id' => $validate['prodi_id'] ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? null,
@@ -353,7 +353,7 @@ class SuratKeteranganTransferController extends Controller
             $skt->drive_file_id = null;
             $skt->drive_link = null;
             $skt->status = 'pending';
-            
+
             $signer = \App\Services\SuratService::resolveSigner('SKM', [
                 'prodi_id' => $validate['prodi_id'] ?? $skt->prodi_id ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? $skt->tanda_tangan_id ?? null,
@@ -564,7 +564,7 @@ class SuratKeteranganTransferController extends Controller
             'kopBase64' => $kopBase64,
             'ttd' => $ttdBase64,
             'stempel' => $stempelBase64,
-                    'petanda_tangan' => $data->petanda_tangan ?? ($petandaTangan ?? 'tidak')
+            'petanda_tangan' => $data->petanda_tangan ?? ($petandaTangan ?? 'tidak')
         ];
     }
 

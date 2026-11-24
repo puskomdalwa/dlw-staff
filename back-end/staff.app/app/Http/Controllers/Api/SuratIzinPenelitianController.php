@@ -141,7 +141,7 @@ class SuratIzinPenelitianController extends Controller
             $sip->user_id = Auth::user()->id;
             $sip->jenis_kelamin = Auth::user()->jenis_kelamin;
             $sip->status = 'pending';
-            
+
             $signer = \App\Services\SuratService::resolveSigner('SIP', [
                 'prodi_id' => $validate['prodi_id'] ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? null,
@@ -338,7 +338,7 @@ class SuratIzinPenelitianController extends Controller
             $sip->drive_file_id = null;
             $sip->drive_link = null;
             $sip->status = 'pending';
-            
+
             $signer = \App\Services\SuratService::resolveSigner('SIP', [
                 'prodi_id' => $validate['prodi_id'] ?? $sip->prodi_id ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? $sip->tanda_tangan_id ?? null,

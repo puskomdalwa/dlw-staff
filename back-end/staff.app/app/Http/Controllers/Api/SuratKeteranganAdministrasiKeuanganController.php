@@ -12,7 +12,9 @@ use App\Models\TandaTangan;
 use App\Services\SuratService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -108,9 +110,11 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
 
             $noSurat = \App\Services\SuratService::formatNomorSurat('SKAK', $no_surat, $validate['tanggal'], $validate['prodi_id'] ?? null);
 
+            DB::beginTransaction();
+
             $data = new SuratKeteranganAdministrasiKeuangan();
             $data->nomor_surat  = $noSurat;
-            $data->prodi_id     = $validate['prodi_id'];
+            $data->prodi_id     = !empty($validate['prodi_id']) ? $validate['prodi_id'] : null;
             $data->nama_lengkap = $validate['nama_mhs'];
             $data->tempat_lahir = $validate['tempat_lahir'];
             $data->tanggal_lahir = $validate['tanggal_lahir'];
@@ -130,17 +134,23 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
             }
             $data->jenis_kelamin = Auth::user()->jenis_kelamin;
             $data->status = 'pending';
-            $data->petanda_tangan = $validate['petanda_tangan'] ?? 'tidak';
+            if (Schema::hasColumn('surat_keterangan_administrasi_keuangan', 'petanda_tangan')) {
+                $data->petanda_tangan = $validate['petanda_tangan'] ?? 'tidak';
+            }
             $data->user_id      = Auth::user()->id;
-            
+
             $signer = \App\Services\SuratService::resolveSigner('SKAK', [
                 'prodi_id' => $validate['prodi_id'] ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? null,
                 'ketua' => $validate['ketua'] ?? null,
                 'nidn' => $validate['nidn'] ?? ($validate['nidn_kepala'] ?? null),
             ]);
-            $data->ketua = $signer['ketua'];
-            $data->nidn = $signer['nidn'];
+            if (Schema::hasColumn('surat_keterangan_administrasi_keuangan', 'ketua')) {
+                $data->ketua = $signer['ketua'];
+            }
+            if (Schema::hasColumn('surat_keterangan_administrasi_keuangan', 'nidn')) {
+                $data->nidn = $signer['nidn'];
+            }
             $data->save();
 
             $Nomor              = new NoSurat();
@@ -148,49 +158,27 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
             $Nomor->user_id    = Auth::user()->id;
             $Nomor->save();
 
-            // Re-fetch record with joins to build the new PDF
-            $refetched = SuratKeteranganAdministrasiKeuangan::leftJoin('prodi', 'prodi.id', '=', 'surat_keterangan_administrasi_keuangan.prodi_id')
-                ->leftJoin('fakultas_prodi', 'fakultas_prodi.prodi_id', '=', 'prodi.id')
-                ->leftJoin('fakultas', 'fakultas.id', '=', 'fakultas_prodi.fakultas_id')
-                ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', 'surat_keterangan_administrasi_keuangan.tanda_tangan_id')
-                ->select(
-                    'surat_keterangan_administrasi_keuangan.*',
-                    'prodi.nama as nama_prodi',
-                    'prodi.alias as alias_prodi',
-                    'fakultas.nama as fakultas',
-                    'tanda_tangan.nama as nama_ttd',
-                    'tanda_tangan.gambar as ttd',
-                )
-                ->where('surat_keterangan_administrasi_keuangan.id', $data->id)
-                ->first();
+            $prodiName = $this->generateAndSavePdf($data->id);
 
-            if ($refetched) {
-                $pdfData = $this->buildPdfData($refetched);
-                $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($refetched->nama_prodi ?? 'UMUM');
-                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganAdministrasiKeuanganController');
-                $pdf = Pdf::loadView('pdf.administrasi_keuangan', $pdfData)->setPaper('a4', 'portrait');
-                $safeNim = \App\Services\SuratService::sanitizeFileSegment($refetched->nim ?? null, (string) $refetched->id);
-                $fileName = 'surat_keterangan_administrasi_keuangan_' . $safeNim . '_' . uniqid() . '.pdf';
+            DB::commit();
 
-                $path = $directory . $fileName;
-                $pdf->save($path);
-
-                $refetched->update(['local_path' => $path]);
-
-                $nameTable = 'Surat Keterangan Administrasi Keuangan';
-                UploudSuratToDrive::dispatch($refetched->id, $nameTable, $refetched->nama_prodi, SuratKeteranganAdministrasiKeuangan::class);
-            }
+            $this->dispatchDriveUpload($data->id, $prodiName);
 
             return response()->json([
                 'status' => true,
                 'message' => 'Data berhasil ditambahkan'
             ]);
         } catch (\Throwable $th) {
-            Log::info($th);
+            DB::rollBack();
+            Log::error('SuratKeteranganAdministrasiKeuangan store error: ' . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
             return response()->json([
                 'status' => false,
-                'message' => 'Data gagal ditambahkan'
-            ]);
+                'message' => 'Data gagal ditambahkan',
+                'error' => $th->getMessage()
+            ], 500);
         }
     }
 
@@ -326,7 +314,11 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
 
             // Delete old file from Google Drive if exists
             if (!empty($oldDriveFileId)) {
-                \App\Services\GoogleDrive::deleteFile($oldDriveFileId);
+                try {
+                    \App\Services\GoogleDrive::deleteFile($oldDriveFileId);
+                } catch (\Throwable $driveEx) {
+                    Log::warning('SuratKeteranganAdministrasiKeuangan delete old Drive gagal: ' . $driveEx->getMessage());
+                }
             }
             if (!empty($oldLocalPath) && file_exists($oldLocalPath)) {
                 @unlink($oldLocalPath);
@@ -335,61 +327,41 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
             $data->drive_file_id = null;
             $data->drive_link = null;
             $data->status = 'pending';
-            $data->petanda_tangan = $validate['petanda_tangan'] ?? 'tidak';
-            
+            if (Schema::hasColumn('surat_keterangan_administrasi_keuangan', 'petanda_tangan')) {
+                $data->petanda_tangan = $validate['petanda_tangan'] ?? 'tidak';
+            }
+
             $signer = \App\Services\SuratService::resolveSigner('SKAK', [
                 'prodi_id' => $validate['prodi_id'] ?? $data->prodi_id ?? null,
                 'tanda_tangan_id' => $validate['tanda_tangan_id'] ?? $data->tanda_tangan_id ?? null,
                 'ketua' => $validate['ketua'] ?? $data->ketua ?? null,
                 'nidn' => $validate['nidn'] ?? ($validate['nidn_kepala'] ?? $data->nidn ?? null),
             ]);
-            $data->ketua = $signer['ketua'];
-            $data->nidn = $signer['nidn'];
+            if (Schema::hasColumn('surat_keterangan_administrasi_keuangan', 'ketua')) {
+                $data->ketua = $signer['ketua'];
+            }
+            if (Schema::hasColumn('surat_keterangan_administrasi_keuangan', 'nidn')) {
+                $data->nidn = $signer['nidn'];
+            }
             $data->save();
 
-            // Re-fetch record with joins to build the new PDF
-            $refetched = SuratKeteranganAdministrasiKeuangan::leftJoin('prodi', 'prodi.id', '=', 'surat_keterangan_administrasi_keuangan.prodi_id')
-                ->leftJoin('fakultas_prodi', 'fakultas_prodi.prodi_id', '=', 'prodi.id')
-                ->leftJoin('fakultas', 'fakultas.id', '=', 'fakultas_prodi.fakultas_id')
-                ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', 'surat_keterangan_administrasi_keuangan.tanda_tangan_id')
-                ->select(
-                    'surat_keterangan_administrasi_keuangan.*',
-                    'prodi.nama as nama_prodi',
-                    'prodi.alias as alias_prodi',
-                    'fakultas.nama as fakultas',
-                    'tanda_tangan.nama as nama_ttd',
-                    'tanda_tangan.gambar as ttd',
-                )
-                ->where('surat_keterangan_administrasi_keuangan.id', $data->id)
-                ->first();
-
-            if ($refetched) {
-                $pdfData = $this->buildPdfData($refetched);
-                $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : ($refetched->nama_prodi ?? 'UMUM');
-                $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganAdministrasiKeuanganController');
-                $pdf = Pdf::loadView('pdf.administrasi_keuangan', $pdfData)->setPaper('a4', 'portrait');
-                $safeNim = \App\Services\SuratService::sanitizeFileSegment($refetched->nim ?? null, (string) $refetched->id);
-                $fileName = 'surat_keterangan_administrasi_keuangan_' . $safeNim . '_' . uniqid() . '.pdf';
-
-                $path = $directory . $fileName;
-                $pdf->save($path);
-
-                $refetched->update(['local_path' => $path]);
-
-                $nameTable = 'Surat Keterangan Administrasi Keuangan';
-                UploudSuratToDrive::dispatch($refetched->id, $nameTable, $refetched->nama_prodi, SuratKeteranganAdministrasiKeuangan::class);
-            }
+            $prodiName = $this->generateAndSavePdf($data->id);
+            $this->dispatchDriveUpload($data->id, $prodiName);
 
             return response()->json([
                 'status' => true,
                 'message' => 'Data berhasil diupdate'
             ]);
         } catch (\Throwable $th) {
-            Log::info($th->getMessage());
+            Log::error('SuratKeteranganAdministrasiKeuangan update error: ' . $th->getMessage(), [
+                'file' => $th->getFile(),
+                'line' => $th->getLine(),
+            ]);
             return response()->json([
                 'status' => false,
-                'message' => 'Data gagal diupdate'
-            ]);
+                'message' => 'Data gagal diupdate',
+                'error' => $th->getMessage()
+            ], 500);
         }
     }
 
@@ -428,7 +400,17 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
                 return response()->json(['status' => false, 'message' => 'Data tidak ditemukan'], 404);
             }
 
-            if (empty($data->local_path) || !file_exists($data->local_path)) {
+            $viewPath = resource_path('views/pdf/administrasi_keuangan.blade.php');
+            $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
+            $hasLocalFile = !empty($data->local_path) && file_exists($data->local_path) && is_readable($data->local_path);
+            $pdfMtime = $hasLocalFile ? filemtime($data->local_path) : 0;
+
+            if (!$hasLocalFile || $viewMtime > $pdfMtime) {
+                $this->generateAndSavePdf($data->id);
+                $data->refresh();
+            }
+
+            if (empty($data->local_path) || !file_exists($data->local_path) || !is_readable($data->local_path)) {
                 return response()->json(['status' => false, 'message' => 'File PDF tidak ditemukan di server'], 404);
             }
 
@@ -441,6 +423,52 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
         } catch (\Throwable $th) {
             \Illuminate\Support\Facades\Log::error("SuratKeteranganAdministrasiKeuangan downloadPdf error for ID {$id}: " . $th->getMessage());
             return response()->json(['status' => false, 'message' => 'Gagal download PDF', 'error' => $th->getMessage()], 500);
+        }
+    }
+
+    private function generateAndSavePdf(int $id): ?string
+    {
+        $refetched = SuratKeteranganAdministrasiKeuangan::leftJoin('prodi', 'prodi.id', '=', 'surat_keterangan_administrasi_keuangan.prodi_id')
+            ->leftJoin('fakultas_prodi', 'fakultas_prodi.prodi_id', '=', 'prodi.id')
+            ->leftJoin('fakultas', 'fakultas.id', '=', 'fakultas_prodi.fakultas_id')
+            ->leftJoin('tanda_tangan', 'tanda_tangan.id', '=', 'surat_keterangan_administrasi_keuangan.tanda_tangan_id')
+            ->select(
+                'surat_keterangan_administrasi_keuangan.*',
+                'prodi.nama as nama_prodi',
+                'prodi.alias as alias_prodi',
+                'fakultas.nama as fakultas',
+                'tanda_tangan.nama as nama_ttd',
+                'tanda_tangan.gambar as ttd',
+            )
+            ->where('surat_keterangan_administrasi_keuangan.id', $id)
+            ->first();
+
+        if (!$refetched) {
+            return null;
+        }
+
+        $pdfData = $this->buildPdfData($refetched);
+        $prodiName = Auth::user()?->prodi ? Auth::user()->prodi->nama : (!empty($refetched->nama_prodi) ? $refetched->nama_prodi : 'UMUM');
+        $directory = \App\Services\SuratService::resolvePdfDirectory($prodiName, 'SuratKeteranganAdministrasiKeuanganController');
+        $pdf = Pdf::loadView('pdf.administrasi_keuangan', $pdfData)->setPaper('a4', 'portrait');
+        $safeNim = \App\Services\SuratService::sanitizeFileSegment($refetched->nim ?? null, (string) $refetched->id);
+        $fileName = 'surat_keterangan_administrasi_keuangan_' . $safeNim . '_' . uniqid() . '.pdf';
+
+        $path = $directory . $fileName;
+        $pdf->save($path);
+
+        SuratKeteranganAdministrasiKeuangan::where('id', $refetched->id)->update(['local_path' => $path]);
+
+        return !empty($refetched->nama_prodi) ? $refetched->nama_prodi : $prodiName;
+    }
+
+    private function dispatchDriveUpload(int $id, ?string $prodiName): void
+    {
+        try {
+            $driveProdi = !empty($prodiName) ? $prodiName : 'UMUM';
+            UploudSuratToDrive::dispatch($id, 'Surat Keterangan Administrasi Keuangan', $driveProdi, SuratKeteranganAdministrasiKeuangan::class);
+        } catch (\Throwable $driveEx) {
+            Log::warning('SuratKeteranganAdministrasiKeuangan dispatch Drive gagal: ' . $driveEx->getMessage());
         }
     }
 
@@ -488,7 +516,7 @@ class SuratKeteranganAdministrasiKeuanganController extends Controller
             'kopBase64' => $kopBase64,
             'ttd' => $tddBase64,
             'stempel' => $stempelBase64,
-                    'petanda_tangan' => $data->petanda_tangan ?? ($petandaTangan ?? 'tidak'),
+            'petanda_tangan' => $data->petanda_tangan ?? ($petandaTangan ?? 'tidak'),
         ];
     }
 }
