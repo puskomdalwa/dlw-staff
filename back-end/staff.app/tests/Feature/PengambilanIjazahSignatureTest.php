@@ -172,9 +172,17 @@ class PengambilanIjazahSignatureTest extends TestCase
             $this->cleanupPaths[] = $form->signed_local_path;
         }
 
-        // Signed PDF generated and queued for signed Drive upload
+        // Signed PDF generated and queued for signed Drive upload (with embedded QR PNG images, excluding baku_kabag)
         $this->assertNotEmpty($form->signed_local_path);
         $this->assertFileExists($form->signed_local_path);
+        $pdfBinary = file_get_contents($form->signed_local_path);
+        $this->assertIsString($pdfBinary);
+        $this->assertStringContainsString('/Subtype /Image', $pdfBinary);
+
+        $renderedHtml = view('pdf.form_pengambilan_ijazah', app(\App\Services\PengambilanIjazahSignatureService::class)->buildPdfData($form, true))->render();
+        $this->assertStringContainsString('QR BAKU AUPK', $renderedHtml);
+        $this->assertStringNotContainsString('QR BAKU Kabag', $renderedHtml);
+        $this->assertStringContainsString('data:image/png;base64,', $renderedHtml);
         Queue::assertPushed(UploudSuratToDrive::class, function ($job) use ($form) {
             return $job->id === $form->id
                 && $job->modelClass === FormPengambilanIjazah::class

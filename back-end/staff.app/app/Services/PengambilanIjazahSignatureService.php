@@ -537,6 +537,10 @@ class PengambilanIjazahSignatureService
         $steps = $this->ensureStepsForForm($form)->keyBy('step_key');
         $qrSteps = [];
         foreach (self::STEP_ORDER as $key => $order) {
+            if ($key === 'baku_kabag') {
+                // BAKU Kabag hanya tahap verifikasi timeline/API dan tidak dicetak di PDF
+                continue;
+            }
             /** @var PengambilanIjazahSignature|null $step */
             $step = $steps->get($key);
             $isApproved = $includeQr && $step && $step->status === 'approved';

@@ -271,6 +271,14 @@ class Sk6SignatureTest extends TestCase
         $sk6->refresh();
         $this->assertNotEmpty($sk6->signed_local_path);
         $this->assertFileExists($sk6->signed_local_path);
+        $pdfBinary = file_get_contents($sk6->signed_local_path);
+        $this->assertIsString($pdfBinary);
+        $this->assertStringContainsString('/Subtype /Image', $pdfBinary);
+
+        $sklmk = \App\Models\SuratKeteranganLulusMataKuliah::find($sk6->surat_keterangan_lulus_mata_kuliah_id);
+        $sk6Html = view('pdf.sk_6', app(\App\Services\Sk6SignatureService::class)->buildSk6PdfData($sk6, $sklmk, true))->render();
+        $this->assertStringContainsString('QR BAKU AUPK', $sk6Html);
+        $this->assertStringNotContainsString('QR BAKU Kabag', $sk6Html);
         @unlink($sk6->signed_local_path);
     }
 

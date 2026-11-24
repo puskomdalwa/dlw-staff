@@ -696,6 +696,11 @@ class Sk6SignatureService
         $steps = $this->ensureStepsForSk6($sk6)->keyBy('step_key');
         $qrCodes = [];
         foreach (array_keys(self::STEP_ORDER) as $key) {
+            if ($key === 'baku_kabag') {
+                // BAKU Kabag hanya tahap verifikasi timeline/API dan tidak dicetak di PDF
+                $qrCodes[$key] = '';
+                continue;
+            }
             $step = $steps->get($key);
             $qrCodes[$key] = ($includeQr && $step && $step->status === 'approved')
                 ? $this->generateQrDataUri($step)
@@ -709,7 +714,6 @@ class Sk6SignatureService
         $stempelBase64 = SuratService::getBase64Image($stempelPath);
 
         $kaprodiStep = $steps->get('kaprodi');
-        $bakuKabagStep = $steps->get('baku_kabag');
         $bakuAupkStep = $steps->get('baku_aupk');
         $kknStep = $steps->get('kkn');
         $idarohStep = $steps->get('idaroh_syuun');
@@ -742,11 +746,6 @@ class Sk6SignatureService
             'kaprodi_nama' => $kaprodiStep?->signer_name ?: ($sklmk->kaprodi_nama ?: $sklmk->nama_kepala_prodi),
             'kaprodi_nidn' => $kaprodiStep?->signer_nidn,
             'qr_kaprodi' => $qrCodes['kaprodi'],
-
-            'skak_kabag_title' => $bakuKabagStep?->title ?: 'Kabag BAKU',
-            'skak_kabag_nama' => $bakuKabagStep?->signer_name ?: 'Kabag BAKU',
-            'skak_kabag_nidn' => $bakuKabagStep?->signer_nidn,
-            'qr_baku_kabag' => $qrCodes['baku_kabag'],
 
             'skak_aupk_title' => $bakuAupkStep?->title ?: 'Kepala Biro AUPK',
             'skak_aupk_nama' => $bakuAupkStep?->signer_name ?: 'Dr. Musleh Harry, SH, M.Hum',

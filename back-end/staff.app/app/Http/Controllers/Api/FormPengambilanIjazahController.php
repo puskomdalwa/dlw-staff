@@ -332,20 +332,8 @@ class FormPengambilanIjazahController extends Controller
                 ], 422);
             }
 
-            $viewPath = resource_path('views/pdf/form_pengambilan_ijazah.blade.php');
-            $viewMtime = file_exists($viewPath) ? filemtime($viewPath) : 0;
-            $pdfMtime = (!empty($data->signed_local_path) && file_exists($data->signed_local_path))
-                ? filemtime($data->signed_local_path)
-                : 0;
-            $latestSignedAt = $data->signatures()->max('signed_at');
-            $latestSignedTs = $latestSignedAt ? strtotime((string) $latestSignedAt) : 0;
-            $latestUpdatedAt = $data->signatures()->max('updated_at');
-            $latestUpdatedTs = $latestUpdatedAt ? strtotime((string) $latestUpdatedAt) : 0;
-
-            if (empty($data->signed_local_path) || !file_exists($data->signed_local_path) || $viewMtime > $pdfMtime || $latestSignedTs > $pdfMtime || $latestUpdatedTs > $pdfMtime) {
-                $this->signatureService->regenerateSignedPdf($data);
-                $data->refresh();
-            }
+            $this->signatureService->regenerateSignedPdf($data);
+            $data->refresh();
 
             if (empty($data->signed_local_path) || !file_exists($data->signed_local_path)) {
                 return response()->json(['status' => false, 'message' => 'File PDF bertanda tangan tidak ditemukan di server'], 404);
