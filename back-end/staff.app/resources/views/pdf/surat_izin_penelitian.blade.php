@@ -255,7 +255,7 @@
                                 <img src="{{ $stempel }}" style="position: absolute; left: 15px; top: -5px; width: 88px; height: 88px; z-index: 2;">
                                 @endif
                                 @if(!empty($ttd))
-                                <img src="{{ $ttd }}" style="position: absolute; left: 55px; top: 0px; width: 150px; max-height: 80px; object-fit: contain; z-index: 1;">
+                                <img src="{{ $ttd }}" style="position: absolute; left: 55px; top: 0px; margin-top: 12px; width: 150px; max-height: 80px; object-fit: contain; z-index: 1;">
                                 @endif
                             </div>
                         </td>
