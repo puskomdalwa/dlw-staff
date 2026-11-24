@@ -23,15 +23,17 @@ class Sk6SignatureService
         'kaprodi' => 1,
         'kkn' => 2,
         'keamanan' => 3,
-        'baku' => 4,
-        'idaroh_syuun' => 5,
+        'baku_kabag' => 4,
+        'baku_aupk' => 5,
+        'idaroh_syuun' => 6,
     ];
 
     public const SHORT_LABELS = [
         'kaprodi' => 'Kaprodi',
         'kkn' => 'KKN',
         'keamanan' => 'Keamanan',
-        'baku' => 'BAKU',
+        'baku_kabag' => 'BAKU Kabag',
+        'baku_aupk' => 'BAKU AUPK',
         'idaroh_syuun' => 'Idaroh Syuun',
     ];
 
@@ -40,9 +42,17 @@ class Sk6SignatureService
      */
     private function buildInitialDefaults(): array
     {
-        $settingBaku = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'kepala_biro_keuangan')->first();
-        $bakuNama = $settingBaku?->tandaTangan?->nama ?: 'Dr. Musleh Harry, SH, M.Hum';
-        $bakuNidn = $settingBaku?->nidn;
+        $settingBakuKabag = SettingJabatan::with('tandaTangan')
+            ->whereIn('kunci_jabatan', ['baku_kabag', 'kabag_baku', 'kabag_keuangan'])
+            ->first();
+        $bakuKabagNama = $settingBakuKabag?->tandaTangan?->nama ?: 'Kabag BAKU';
+        $bakuKabagNidn = $settingBakuKabag?->nidn;
+
+        $settingBakuAupk = SettingJabatan::with('tandaTangan')
+            ->whereIn('kunci_jabatan', ['baku_aupk', 'kepala_biro_aupk', 'kepala_biro_keuangan'])
+            ->first();
+        $bakuAupkNama = $settingBakuAupk?->tandaTangan?->nama ?: 'Dr. Musleh Harry, SH, M.Hum';
+        $bakuAupkNidn = $settingBakuAupk?->nidn;
 
         $settingKkn = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'ketua_tasma')->first();
         $kknNama = $settingKkn?->tandaTangan?->nama ?: 'Achmad Djuaini, M.Pd';
@@ -80,13 +90,20 @@ class Sk6SignatureService
             ],
             [
                 'step_order' => 4,
-                'step_key' => 'baku',
-                'title' => 'Kepala Biro Administrasi Keuangan',
-                'signer_name' => $bakuNama,
-                'signer_nidn' => $bakuNidn,
+                'step_key' => 'baku_kabag',
+                'title' => 'Kabag BAKU',
+                'signer_name' => $bakuKabagNama,
+                'signer_nidn' => $bakuKabagNidn,
             ],
             [
                 'step_order' => 5,
+                'step_key' => 'baku_aupk',
+                'title' => 'Kepala Biro AUPK',
+                'signer_name' => $bakuAupkNama,
+                'signer_nidn' => $bakuAupkNidn,
+            ],
+            [
+                'step_order' => 6,
                 'step_key' => 'idaroh_syuun',
                 'title' => 'Idaroh Syuun',
                 'signer_name' => $idarohNama,
@@ -101,6 +118,24 @@ class Sk6SignatureService
     public function getSignerDefaults(): array
     {
         $existing = Sk6SignerDefault::all()->keyBy('step_key');
+        if ($existing->has('baku')) {
+            $legacyBaku = $existing->get('baku');
+            if (!$existing->has('baku_aupk')) {
+                $updates = [
+                    'step_key' => 'baku_aupk',
+                    'step_order' => self::STEP_ORDER['baku_aupk'],
+                ];
+                if ($legacyBaku->title === 'Kepala Biro Administrasi Keuangan') {
+                    $updates['title'] = 'Kepala Biro AUPK';
+                }
+                $legacyBaku->update($updates);
+                $existing->put('baku_aupk', $legacyBaku->fresh());
+            } else {
+                $legacyBaku->delete();
+            }
+            $existing->forget('baku');
+        }
+
         $fallback = $this->buildInitialDefaults();
 
         $results = [];
@@ -236,7 +271,7 @@ class Sk6SignatureService
     }
 
     /**
-     * Resolve default metadata (order, title, signer_name, signer_nidn) for the 5 SK6 steps.
+     * Resolve default metadata (order, title, signer_name, signer_nidn) for the 6 SK6 steps.
      */
     public function resolveStepDefinitions(SuratKeterangan6 $sk6): array
     {
@@ -264,10 +299,15 @@ class Sk6SignatureService
             ? ($defKaprodi['signer_nidn'] ?? null)
             : $prodi?->nidn_kepala;
 
-        $defBaku = $defaults->get('baku');
-        $bakuTitle = $defBaku['title'] ?? 'Kepala Biro Administrasi Keuangan';
-        $bakuNama = $defBaku['signer_name'] ?: ($sk6->skAdminKeuangan?->kepala_biro ?: 'Dr. Musleh Harry, SH, M.Hum');
-        $bakuNidn = $defBaku['signer_nidn'] ?? null;
+        $defBakuKabag = $defaults->get('baku_kabag');
+        $bakuKabagTitle = $defBakuKabag['title'] ?? 'Kabag BAKU';
+        $bakuKabagNama = $defBakuKabag['signer_name'] ?: 'Kabag BAKU';
+        $bakuKabagNidn = $defBakuKabag['signer_nidn'] ?? null;
+
+        $defBakuAupk = $defaults->get('baku_aupk');
+        $bakuAupkTitle = $defBakuAupk['title'] ?? 'Kepala Biro AUPK';
+        $bakuAupkNama = $defBakuAupk['signer_name'] ?: ($sk6->skAdminKeuangan?->kepala_biro ?: 'Dr. Musleh Harry, SH, M.Hum');
+        $bakuAupkNidn = $defBakuAupk['signer_nidn'] ?? null;
 
         $defKkn = $defaults->get('kkn');
         $kknTitle = $defKkn['title'] ?? 'Ketua TASMA, KKN & PPL';
@@ -316,13 +356,20 @@ class Sk6SignatureService
             ],
             [
                 'step_order' => 4,
-                'step_key' => 'baku',
-                'title' => $bakuTitle,
-                'signer_name' => $bakuNama,
-                'signer_nidn' => $bakuNidn,
+                'step_key' => 'baku_kabag',
+                'title' => $bakuKabagTitle,
+                'signer_name' => $bakuKabagNama,
+                'signer_nidn' => $bakuKabagNidn,
             ],
             [
                 'step_order' => 5,
+                'step_key' => 'baku_aupk',
+                'title' => $bakuAupkTitle,
+                'signer_name' => $bakuAupkNama,
+                'signer_nidn' => $bakuAupkNidn,
+            ],
+            [
+                'step_order' => 6,
                 'step_key' => 'idaroh_syuun',
                 'title' => $idarohTitle,
                 'signer_name' => $idarohNama,
@@ -332,7 +379,7 @@ class Sk6SignatureService
     }
 
     /**
-     * Ensure all 5 timeline steps exist for a given SK6 record (supports legacy SK6 rows).
+     * Ensure all 6 timeline steps exist for a given SK6 record (supports legacy SK6 rows).
      */
     public function ensureStepsForSk6(SuratKeterangan6 $sk6): Collection
     {
@@ -340,6 +387,24 @@ class Sk6SignatureService
         $existing = Sk6Signature::where('surat_keterangan_6_id', $sk6->id)
             ->get()
             ->keyBy('step_key');
+
+        if ($existing->has('baku')) {
+            $legacyBaku = $existing->get('baku');
+            if (!$existing->has('baku_aupk')) {
+                $updates = [
+                    'step_key' => 'baku_aupk',
+                    'step_order' => self::STEP_ORDER['baku_aupk'],
+                ];
+                if ($legacyBaku->title === 'Kepala Biro Administrasi Keuangan') {
+                    $updates['title'] = 'Kepala Biro AUPK';
+                }
+                $legacyBaku->update($updates);
+                $existing->put('baku_aupk', $legacyBaku->fresh());
+            } else {
+                $legacyBaku->delete();
+            }
+            $existing->forget('baku');
+        }
 
         foreach ($definitions as $def) {
             if (!$existing->has($def['step_key'])) {
@@ -644,7 +709,8 @@ class Sk6SignatureService
         $stempelBase64 = SuratService::getBase64Image($stempelPath);
 
         $kaprodiStep = $steps->get('kaprodi');
-        $bakuStep = $steps->get('baku');
+        $bakuKabagStep = $steps->get('baku_kabag');
+        $bakuAupkStep = $steps->get('baku_aupk');
         $kknStep = $steps->get('kkn');
         $idarohStep = $steps->get('idaroh_syuun');
         $qaStep = $steps->get('keamanan');
@@ -677,10 +743,15 @@ class Sk6SignatureService
             'kaprodi_nidn' => $kaprodiStep?->signer_nidn,
             'qr_kaprodi' => $qrCodes['kaprodi'],
 
-            'skak_title' => $bakuStep?->title ?: 'Kepala Biro Administrasi Keuangan',
-            'skak_nama' => $bakuStep?->signer_name ?: 'Dr. Musleh Harry, SH, M.Hum',
-            'skak_nidn' => $bakuStep?->signer_nidn,
-            'qr_baku' => $qrCodes['baku'],
+            'skak_kabag_title' => $bakuKabagStep?->title ?: 'Kabag BAKU',
+            'skak_kabag_nama' => $bakuKabagStep?->signer_name ?: 'Kabag BAKU',
+            'skak_kabag_nidn' => $bakuKabagStep?->signer_nidn,
+            'qr_baku_kabag' => $qrCodes['baku_kabag'],
+
+            'skak_aupk_title' => $bakuAupkStep?->title ?: 'Kepala Biro AUPK',
+            'skak_aupk_nama' => $bakuAupkStep?->signer_name ?: 'Dr. Musleh Harry, SH, M.Hum',
+            'skak_aupk_nidn' => $bakuAupkStep?->signer_nidn,
+            'qr_baku_aupk' => $qrCodes['baku_aupk'],
 
             'sktkp_title' => $kknStep?->title ?: 'Ketua TASMA, KKN & PPL',
             'sktkp_nama' => $kknStep?->signer_name ?: 'Achmad Djuaini, M.Pd',

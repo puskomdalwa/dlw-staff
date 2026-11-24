@@ -14,12 +14,15 @@ use Illuminate\Support\Facades\Validator;
 
 class Sk6SignatureController extends Controller
 {
+    private const STEP_RULE = 'required|in:kaprodi,kkn,keamanan,baku_kabag,baku_aupk,idaroh_syuun';
+    private const STEP_ITEM_RULE = 'string|in:kaprodi,kkn,keamanan,baku_kabag,baku_aupk,idaroh_syuun';
+
     public function __construct(private Sk6SignatureService $signatureService)
     {
     }
 
     /**
-     * Internal UI: Get 5-step signature timeline for an SK6 record.
+     * Internal UI: Get 6-step signature timeline for an SK6 record.
      */
     public function timeline($id)
     {
@@ -167,8 +170,9 @@ class Sk6SignatureController extends Controller
                     ['step_order' => 1, 'step_key' => 'kaprodi', 'title' => 'Ketua Program Studi ({Prodi})'],
                     ['step_order' => 2, 'step_key' => 'kkn', 'title' => 'Ketua TASMA, KKN & PPL'],
                     ['step_order' => 3, 'step_key' => 'keamanan', 'title' => 'Ketua Qismul Aman'],
-                    ['step_order' => 4, 'step_key' => 'baku', 'title' => 'Kepala Biro Administrasi Keuangan'],
-                    ['step_order' => 5, 'step_key' => 'idaroh_syuun', 'title' => 'Idaroh Syuun'],
+                    ['step_order' => 4, 'step_key' => 'baku_kabag', 'title' => 'Kabag BAKU'],
+                    ['step_order' => 5, 'step_key' => 'baku_aupk', 'title' => 'Kepala Biro AUPK'],
+                    ['step_order' => 6, 'step_key' => 'idaroh_syuun', 'title' => 'Idaroh Syuun'],
                 ],
             ],
             'message' => 'Konfigurasi integrasi API SK6 berhasil diambil',
@@ -219,7 +223,7 @@ class Sk6SignatureController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'steps' => 'required|array|min:1',
-            'steps.*.step_key' => 'required|in:kaprodi,baku,kkn,idaroh_syuun,keamanan',
+            'steps.*.step_key' => self::STEP_RULE,
             'steps.*.title' => 'required|string|max:255',
             'steps.*.signer_name' => 'nullable|string|max:255',
             'steps.*.signer_nidn' => 'nullable|string|max:100',
@@ -399,7 +403,7 @@ class Sk6SignatureController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'step_key' => 'required|in:kaprodi,baku,kkn,idaroh_syuun,keamanan',
+            'step_key' => self::STEP_RULE,
         ]);
 
         if ($validator->fails()) {
@@ -483,7 +487,7 @@ class Sk6SignatureController extends Controller
     private function handleExternalSign(Request $request, SuratKeterangan6 $sk6)
     {
         $validator = Validator::make($request->all(), [
-            'step_key' => 'required|in:kaprodi,baku,kkn,idaroh_syuun,keamanan',
+            'step_key' => self::STEP_RULE,
             'signer_name' => 'nullable|string|max:255',
             'signer_nidn' => 'nullable|string|max:100',
             'title' => 'nullable|string|max:255',
@@ -491,7 +495,7 @@ class Sk6SignatureController extends Controller
             'notes' => 'nullable|string|max:1000',
             'require_previous_approved' => 'sometimes|boolean',
             'required_steps' => 'sometimes|array',
-            'required_steps.*' => 'string|in:kaprodi,baku,kkn,idaroh_syuun,keamanan',
+            'required_steps.*' => self::STEP_ITEM_RULE,
         ]);
 
         if ($validator->fails()) {

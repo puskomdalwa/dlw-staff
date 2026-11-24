@@ -112,7 +112,7 @@
         }
 
         table.table-persyaratan td.cell-blank {
-            height: 58px;
+            height: 52px;
             vertical-align: middle;
         }
 
@@ -123,8 +123,8 @@
         }
 
         .qr-img {
-            width: 56px;
-            height: 56px;
+            width: 50px;
+            height: 50px;
             display: block;
             margin: 0 auto 2px auto;
         }
@@ -273,7 +273,8 @@
         @php
             $qrSteps = $qr_steps ?? [];
             $stepPondok = $qrSteps['keuangan_pondok'] ?? [];
-            $stepBaku = $qrSteps['baku'] ?? [];
+            $stepBakuKabag = $qrSteps['baku_kabag'] ?? [];
+            $stepBakuAupk = $qrSteps['baku_aupk'] ?? [];
             $stepBaak = $qrSteps['baak'] ?? [];
             $stepWarek = $qrSteps['warek_1'] ?? [];
         @endphp
@@ -309,31 +310,55 @@
                 </td>
             </tr>
             <tr>
-                <td class="text-center font-bold">2</td>
-                <td>
+                <td class="text-center font-bold" rowspan="2">2</td>
+                <td rowspan="2">
                     <div class="font-bold">BEBAS TANGGUNGAN KEUANGAN JAMIAH</div>
                     <div class="sub-item">a. Membayar seluruh biaya Pendidikan sesuai ketentuan</div>
                     <div class="sub-item">b. Membayar biaya wisuda bagi mahasiswa</div>
                     <div class="sub-item">c. Tidak memiliki segala bentuk semua tanggungan</div>
                 </td>
                 <td class="cell-blank jabatan-cell">
-                    @if(!empty($stepBaku['is_signed']))
-                        <div>{{ $stepBaku['title'] ?? 'Kepala Biro Administrasi Keuangan' }}</div>
-                        @if(!empty($stepBaku['signer_name']) && $stepBaku['signer_name'] !== '-')
-                            <div class="jabatan-signer">{{ $stepBaku['signer_name'] }}</div>
+                    @if(!empty($stepBakuKabag['is_signed']))
+                        <div>{{ $stepBakuKabag['title'] ?? 'Kabag BAKU (Keuangan Jamiah)' }}</div>
+                        @if(!empty($stepBakuKabag['signer_name']) && $stepBakuKabag['signer_name'] !== '-')
+                            <div class="jabatan-signer">{{ $stepBakuKabag['signer_name'] }}</div>
                         @endif
-                        @if(!empty($stepBaku['signer_nidn']))
-                            <div class="jabatan-nidn">NIDN/NIY. {{ $stepBaku['signer_nidn'] }}</div>
+                        @if(!empty($stepBakuKabag['signer_nidn']))
+                            <div class="jabatan-nidn">NIDN/NIY. {{ $stepBakuKabag['signer_nidn'] }}</div>
                         @endif
                     @endif
                 </td>
                 <td class="cell-blank qr-cell">
-                    @if(!empty($include_qr) && !empty($stepBaku['qr_data_uri']))
-                        <img src="{{ $stepBaku['qr_data_uri'] }}" alt="QR BAKU" class="qr-img">
+                    @if(!empty($include_qr) && !empty($stepBakuKabag['qr_data_uri']))
+                        <img src="{{ $stepBakuKabag['qr_data_uri'] }}" alt="QR BAKU Kabag" class="qr-img">
                         <div class="qr-caption">
                             Terkonfirmasi QR
-                            @if(!empty($stepBaku['signed_at_date']))
-                                <br>{{ $stepBaku['signed_at_date'] }}
+                            @if(!empty($stepBakuKabag['signed_at_date']))
+                                <br>{{ $stepBakuKabag['signed_at_date'] }}
+                            @endif
+                        </div>
+                    @endif
+                </td>
+            </tr>
+            <tr>
+                <td class="cell-blank jabatan-cell">
+                    @if(!empty($stepBakuAupk['is_signed']))
+                        <div>{{ $stepBakuAupk['title'] ?? 'Kepala Biro AUPK (Keuangan Jamiah)' }}</div>
+                        @if(!empty($stepBakuAupk['signer_name']) && $stepBakuAupk['signer_name'] !== '-')
+                            <div class="jabatan-signer">{{ $stepBakuAupk['signer_name'] }}</div>
+                        @endif
+                        @if(!empty($stepBakuAupk['signer_nidn']))
+                            <div class="jabatan-nidn">NIDN/NIY. {{ $stepBakuAupk['signer_nidn'] }}</div>
+                        @endif
+                    @endif
+                </td>
+                <td class="cell-blank qr-cell">
+                    @if(!empty($include_qr) && !empty($stepBakuAupk['qr_data_uri']))
+                        <img src="{{ $stepBakuAupk['qr_data_uri'] }}" alt="QR BAKU AUPK" class="qr-img">
+                        <div class="qr-caption">
+                            Terkonfirmasi QR
+                            @if(!empty($stepBakuAupk['signed_at_date']))
+                                <br>{{ $stepBakuAupk['signed_at_date'] }}
                             @endif
                         </div>
                     @endif

@@ -85,21 +85,21 @@ class PengambilanIjazahSignatureTest extends TestCase
                 && $job->isSignedSk6 === false;
         });
 
-        // 2. Index endpoint includes 4-step signature summary
+        // 2. Index endpoint includes 5-step signature summary
         $indexRes = $this->actingAs($user, 'sanctum')->getJson('/api/form-pengambilan-ijazah');
         $indexRes->assertStatus(200)
             ->assertJsonPath('data.data.0.id', $form->id)
             ->assertJsonPath('data.data.0.signed_count', 0)
-            ->assertJsonPath('data.data.0.total_steps', 4)
+            ->assertJsonPath('data.data.0.total_steps', 5)
             ->assertJsonPath('data.data.0.is_completed', false);
 
         $indexSteps = $indexRes->json('data.data.0.signatures');
         $this->assertSame(
-            ['keuangan_pondok', 'baku', 'baak', 'warek_1'],
+            ['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'],
             array_column($indexSteps, 'step_key')
         );
 
-        // 3. Download PDF before all 4/4 signed is blocked (422)
+        // 3. Download PDF before all 5/5 signed is blocked (422)
         $blockedPdf = $this->actingAs($user, 'sanctum')
             ->getJson("/api/form-pengambilan-ijazah/download-pdf/{$form->id}");
         $blockedPdf->assertStatus(422);
@@ -115,7 +115,7 @@ class PengambilanIjazahSignatureTest extends TestCase
         // Unauthenticated external access rejected
         $this->getJson('/api/external/form-pengambilan-ijazah')->assertStatus(401);
 
-        // 5. Sign steps 1 & 2 internally
+        // 5. Sign steps 1, 2 & 3 internally (Keu. Pondok -> BAKU Kabag -> BAKU AUPK)
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/keuangan_pondok/confirm", [
                 'signer_name' => 'Ust. Keuangan Pondok',
@@ -126,19 +126,27 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertJsonPath('data.is_completed', false);
 
         $this->actingAs($user, 'sanctum')
-            ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/baku/confirm", [
-                'signer_name' => 'Dr. Musleh Harry, SH, M.Hum',
+            ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/baku_kabag/confirm", [
+                'signer_name' => 'Kabag BAKU Test',
             ])
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 2)
             ->assertJsonPath('data.is_completed', false);
 
-        // Still not 4/4: no signed Drive job yet
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/baku_aupk/confirm", [
+                'signer_name' => 'Dr. Musleh Harry, SH, M.Hum',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 3)
+            ->assertJsonPath('data.is_completed', false);
+
+        // Still not 5/5: no signed Drive job yet
         Queue::assertNotPushed(UploudSuratToDrive::class, function ($job) {
             return $job->isSignedSk6 === true;
         });
 
-        // 6. Sign steps 3 & 4 via External API
+        // 6. Sign steps 4 & 5 via External API
         $this->withHeaders(['X-API-Key' => $apiKey])
             ->postJson('/api/external/form-pengambilan-ijazah/by-nim/202285290099/sign', [
                 'step_key' => 'baak',
@@ -146,7 +154,7 @@ class PengambilanIjazahSignatureTest extends TestCase
                 'source' => 'web-baak',
             ])
             ->assertStatus(200)
-            ->assertJsonPath('data.form.signed_count', 3)
+            ->assertJsonPath('data.form.signed_count', 4)
             ->assertJsonPath('data.form.is_completed', false);
 
         $finalSign = $this->withHeaders(['X-API-Key' => $apiKey])
@@ -156,7 +164,7 @@ class PengambilanIjazahSignatureTest extends TestCase
                 'source' => 'web-warek1',
             ]);
         $finalSign->assertStatus(200)
-            ->assertJsonPath('data.form.signed_count', 4)
+            ->assertJsonPath('data.form.signed_count', 5)
             ->assertJsonPath('data.form.is_completed', true);
 
         $form->refresh();
@@ -204,7 +212,7 @@ class PengambilanIjazahSignatureTest extends TestCase
             ])
             ->assertStatus(200)
             ->assertJsonPath('data.is_completed', false)
-            ->assertJsonPath('data.signed_count', 3);
+            ->assertJsonPath('data.signed_count', 4);
 
         $form->refresh();
         $this->assertNull($form->signed_local_path);
@@ -233,7 +241,7 @@ class PengambilanIjazahSignatureTest extends TestCase
         $indexCheck->assertStatus(200)
             ->assertJsonPath('data.data.0.signatures.0.short_label', 'Keu. Pondok')
             ->assertJsonPath('data.data.0.signatures.0.is_signed', true)
-            ->assertJsonPath('data.data.0.signatures.3.is_signed', false);
+            ->assertJsonPath('data.data.0.signatures.4.is_signed', false);
     }
 
     public function test_signer_defaults_can_be_configured_and_applied_across_module_records(): void
@@ -255,7 +263,7 @@ class PengambilanIjazahSignatureTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/form-pengambilan-ijazah/signer-defaults')
             ->assertStatus(200)
-            ->assertJsonCount(4, 'data');
+            ->assertJsonCount(5, 'data');
 
         $updateRes = $this->actingAs($user, 'sanctum')
             ->postJson('/api/form-pengambilan-ijazah/signer-defaults', [
@@ -269,8 +277,14 @@ class PengambilanIjazahSignatureTest extends TestCase
                         'signer_nidn' => '112233',
                     ],
                     [
-                        'step_key' => 'baku',
-                        'title' => 'Kepala BAKU',
+                        'step_key' => 'baku_kabag',
+                        'title' => 'Kabag BAKU (Keuangan Jamiah)',
+                        'signer_name' => 'Kabag BAKU Baru, S.E.',
+                        'signer_nidn' => '445511',
+                    ],
+                    [
+                        'step_key' => 'baku_aupk',
+                        'title' => 'Kepala Biro AUPK (Keuangan Jamiah)',
                         'signer_name' => 'Dr. Musleh Harry, SH, M.Hum',
                         'signer_nidn' => '445566',
                     ],
@@ -291,7 +305,7 @@ class PengambilanIjazahSignatureTest extends TestCase
 
         $updateRes->assertStatus(200)
             ->assertJsonPath('data.applied_to_existing', true)
-            ->assertJsonPath('data.affected_signatures', 4);
+            ->assertJsonPath('data.affected_signatures', 5);
 
         // Existing form picks up updated default signers
         $this->assertDatabaseHas('pengambilan_ijazah_signatures', [
@@ -363,16 +377,16 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=unknown')
             ->assertStatus(422);
 
-        // Before keuangan_pondok signs: ready_for_step=baku returns 0 items
+        // Before keuangan_pondok signs: ready_for_step=baku_kabag returns 0 items
         $this->withHeaders(['X-API-Key' => $apiKey])
-            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku')
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku_kabag')
             ->assertStatus(200)
             ->assertJsonPath('data.total', 0);
 
-        // Signing baku with require_previous_approved=true before keuangan_pondok is rejected (422)
+        // Signing baku_kabag with require_previous_approved=true before keuangan_pondok is rejected (422)
         $this->withHeaders(['X-API-Key' => $apiKey])
             ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
-                'step_key' => 'baku',
+                'step_key' => 'baku_kabag',
                 'require_previous_approved' => true,
             ])
             ->assertStatus(422);
@@ -393,32 +407,66 @@ class PengambilanIjazahSignatureTest extends TestCase
             ])
             ->assertStatus(200);
 
-        // Now ready_for_step=baku returns ONLY formA (not formB)
+        // Now ready_for_step=baku_kabag returns ONLY formA (not formB), while baku_aupk is still 0
         $this->withHeaders(['X-API-Key' => $apiKey])
-            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku')
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku_kabag')
             ->assertStatus(200)
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $formA->id);
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku_aupk')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
 
         // Explicit approved_steps & pending_steps combination works too
         $this->withHeaders(['X-API-Key' => $apiKey])
-            ->getJson('/api/external/form-pengambilan-ijazah?approved_steps=keuangan_pondok&pending_steps=baku')
+            ->getJson('/api/external/form-pengambilan-ijazah?approved_steps=keuangan_pondok&pending_steps=baku_kabag')
             ->assertStatus(200)
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $formA->id);
 
-        // Now BAKU can sign formA with require_previous_approved=true
+        // BAKU AUPK cannot sign yet with require_previous_approved=true before BAKU Kabag
         $this->withHeaders(['X-API-Key' => $apiKey])
             ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
-                'step_key' => 'baku',
+                'step_key' => 'baku_aupk',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(422);
+
+        // Now BAKU Kabag signs formA with require_previous_approved=true
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
+                'step_key' => 'baku_kabag',
                 'require_previous_approved' => true,
             ])
             ->assertStatus(200)
             ->assertJsonPath('data.form.signed_count', 2);
 
-        // ready_for_step=baak now returns formA, ready_for_step=baku is empty
+        // Now ready_for_step=baku_aupk returns formA, ready_for_step=baku_kabag is empty
         $this->withHeaders(['X-API-Key' => $apiKey])
-            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku')
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku_kabag')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 0);
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku_aupk')
+            ->assertStatus(200)
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.id', $formA->id);
+
+        // Now BAKU AUPK signs formA
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/sign", [
+                'step_key' => 'baku_aupk',
+                'require_previous_approved' => true,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.form.signed_count', 3);
+
+        // ready_for_step=baak now returns formA, ready_for_step=baku_aupk is empty
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson('/api/external/form-pengambilan-ijazah?ready_for_step=baku_aupk')
             ->assertStatus(200)
             ->assertJsonPath('data.total', 0);
 
@@ -430,7 +478,12 @@ class PengambilanIjazahSignatureTest extends TestCase
 
         // Internal UI revoke and external API revoke both work cleanly
         $this->actingAs($user, 'sanctum')
-            ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/baku/revoke")
+            ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/baku_aupk/revoke")
+            ->assertStatus(200)
+            ->assertJsonPath('data.signed_count', 2);
+
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/revoke", ['step_key' => 'baku_kabag'])
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 1);
 
@@ -626,5 +679,48 @@ class PengambilanIjazahSignatureTest extends TestCase
         $this->assertSame('L', $f2->fresh()->jenis_kelamin);
         $this->assertSame('L', $f3->fresh()->jenis_kelamin);
         $this->assertNull($f4->fresh()->jenis_kelamin);
+    }
+
+    public function test_legacy_baku_rows_are_migrated_to_kabag_and_aupk_order(): void
+    {
+        $user = $this->createAdminUser();
+        $form = FormPengambilanIjazah::create([
+            'nama_mhs' => 'Legacy Mahasiswa',
+            'nim' => '20229988',
+            'prodi' => 'PBA',
+            'dosen_pembimbing' => 'Dosen Legacy',
+            'judul_skripsi' => 'Judul Legacy',
+            'tanggal_sidang' => '2026-11-20',
+            'status' => 'pending',
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('pengambilan_ijazah_signer_defaults')->insert([
+            ['step_order' => 1, 'step_key' => 'keuangan_pondok', 'title' => 'Keuangan Pondok', 'signer_name' => 'Pondok', 'signer_nidn' => null],
+            ['step_order' => 2, 'step_key' => 'baku', 'title' => 'Kepala Biro Administrasi Keuangan (Keuangan Jamiah)', 'signer_name' => 'Dr. Musleh Harry, SH, M.Hum', 'signer_nidn' => null],
+            ['step_order' => 3, 'step_key' => 'baak', 'title' => 'Kepala BAAK (Akademik Jamiah)', 'signer_name' => 'BAAK', 'signer_nidn' => null],
+            ['step_order' => 4, 'step_key' => 'warek_1', 'title' => 'Wakil Rektor I', 'signer_name' => 'Warek', 'signer_nidn' => null],
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('pengambilan_ijazah_signatures')->insert([
+            ['form_pengambilan_ijazah_id' => $form->id, 'step_order' => 1, 'step_key' => 'keuangan_pondok', 'title' => 'Keuangan Pondok', 'status' => 'pending', 'signature_token' => 'pij_tok_1'],
+            ['form_pengambilan_ijazah_id' => $form->id, 'step_order' => 2, 'step_key' => 'baku', 'title' => 'Kepala Biro Administrasi Keuangan (Keuangan Jamiah)', 'status' => 'approved', 'signature_token' => 'pij_tok_2'],
+            ['form_pengambilan_ijazah_id' => $form->id, 'step_order' => 3, 'step_key' => 'baak', 'title' => 'Kepala BAAK (Akademik Jamiah)', 'status' => 'pending', 'signature_token' => 'pij_tok_3'],
+            ['form_pengambilan_ijazah_id' => $form->id, 'step_order' => 4, 'step_key' => 'warek_1', 'title' => 'Wakil Rektor I', 'status' => 'pending', 'signature_token' => 'pij_tok_4'],
+        ]);
+
+        $defaultsRes = $this->actingAs($user, 'sanctum')->getJson('/api/form-pengambilan-ijazah/signer-defaults');
+        $defaultsRes->assertStatus(200);
+        $defaults = $defaultsRes->json('data');
+        $this->assertSame(['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'], array_column($defaults, 'step_key'));
+        $this->assertSame([1, 2, 3, 4, 5], array_column($defaults, 'step_order'));
+
+        $timelineRes = $this->actingAs($user, 'sanctum')->getJson("/api/form-pengambilan-ijazah/{$form->id}/signatures");
+        $timelineRes->assertStatus(200);
+        $steps = $timelineRes->json('data.steps');
+        $this->assertSame(['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'], array_column($steps, 'step_key'));
+        $this->assertSame([1, 2, 3, 4, 5], array_column($steps, 'step_order'));
+        $this->assertSame('approved', $steps[2]['status']);
+        $this->assertSame('pij_tok_2', $steps[2]['signature_token']);
+        $this->assertSame('pending', $steps[1]['status']);
     }
 }

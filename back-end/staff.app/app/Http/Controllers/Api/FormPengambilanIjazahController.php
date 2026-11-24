@@ -232,7 +232,7 @@ class FormPengambilanIjazahController extends Controller
             $prodiName = 'BAAK';
             UploudSuratToDrive::dispatch($form->id, $nameTable, $prodiName, FormPengambilanIjazah::class);
 
-            // Jika seluruh 4/4 TTD QR sudah lengkap, regenerate PDF Ber-TTD & antrekan upload Drive versi Ber-TTD
+            // Jika seluruh 5/5 TTD QR sudah lengkap, regenerate PDF Ber-TTD & antrekan upload Drive versi Ber-TTD
             if ($this->signatureService->isCompleted($form)) {
                 $this->signatureService->regenerateSignedPdf($form);
                 $this->signatureService->queueCompleteDriveUpload($form->fresh());
@@ -314,7 +314,7 @@ class FormPengambilanIjazahController extends Controller
     }
 
     /**
-     * Download / preview file PDF formulir pengambilan ijazah (khusus jika seluruh 4/4 TTD QR lengkap).
+     * Download / preview file PDF formulir pengambilan ijazah (khusus jika seluruh 5/5 TTD QR lengkap).
      */
     public function downloadPdf($id)
     {
@@ -328,7 +328,7 @@ class FormPengambilanIjazahController extends Controller
             if (!$this->signatureService->isCompleted($data)) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Tanda tangan QR belum lengkap (wajib 4/4 terkonfirmasi). Silakan lengkapi di menu Timeline TTD.',
+                    'message' => 'Tanda tangan QR belum lengkap (wajib 5/5 terkonfirmasi). Silakan lengkapi di menu Timeline TTD.',
                 ], 422);
             }
 

@@ -22,10 +22,11 @@ API ini digunakan untuk menghubungkan modul **SK 6** dengan website lain (misaln
 | Urutan | `step_key` | Jabatan / Title di PDF SK 6 |
 |---|---|---|
 | 1 | `kaprodi` | Ketua Program Studi `{Nama Prodi}` |
-| 2 | `baku` | Kepala Biro Administrasi Keuangan |
-| 3 | `kkn` | Ketua TASMA, KKN & PPL |
-| 4 | `idaroh_syuun` | Wakil Rektor I |
-| 5 | `keamanan` | Ketua Qismul Aman |
+| 2 | `kkn` | Ketua TASMA, KKN & PPL |
+| 3 | `keamanan` | Ketua Qismul Aman |
+| 4 | `baku_kabag` | Kabag BAKU |
+| 5 | `baku_aupk` | Kepala Biro AUPK |
+| 6 | `idaroh_syuun` | Idaroh Syuun |
 
 ---
 
@@ -39,11 +40,11 @@ Query parameter opsional:
 - `prodi_id` — filter berdasarkan ID prodi
 - `jenis_kelamin` — filter Putra / Putri (`L` atau `putra` untuk Putra, `P` atau `putri` untuk Putri). *Alias: `putra_putri` / `gender`.*
 - `search` — cari berdasarkan nama mahasiswa atau NIM
-- `step_key` & `step_status` (`pending` atau `approved`) — misal `?step_key=baku&step_status=pending` untuk mengambil daftar SK 6 yang belum dikonfirmasi BAKU
-- `ready_for_step` — **(Rekomendasi untuk alur berjenjang)** hanya tampilkan data yang **semua step sebelumnya sudah `approved`** dan step target masih `pending`. Contoh untuk Simkeu (BAKU): `?ready_for_step=baku` (hanya muncul setelah `kaprodi` ACC dan `baku` belum ACC).
-- `require_previous_approved` (`1` / `true`) — digabung dengan `step_key` (misal `?step_key=baku&step_status=pending&require_previous_approved=1` atau `?step_key=baku&step_status=approved&require_previous_approved=1`), mewajibkan semua step sebelum `step_key` sudah `approved`.
-- `approved_steps` — daftar `step_key` dipisah koma yang wajib sudah `approved` (misal `?approved_steps=kaprodi` atau `?approved_steps=kaprodi,baku`).
-- `pending_steps` — daftar `step_key` dipisah koma yang wajib masih `pending` (misal `?pending_steps=baku`).
+- `step_key` & `step_status` (`pending` atau `approved`) — misal `?step_key=baku_kabag&step_status=pending` untuk mengambil daftar SK 6 yang belum dikonfirmasi BAKU Kabag
+- `ready_for_step` — **(Rekomendasi untuk alur berjenjang)** hanya tampilkan data yang **semua step sebelumnya sudah `approved`** dan step target masih `pending`. Contoh untuk Simkeu: `?ready_for_step=baku_kabag` (setelah `kaprodi, kkn, keamanan` ACC) lalu `?ready_for_step=baku_aupk` (setelah `baku_kabag` ACC).
+- `require_previous_approved` (`1` / `true`) — digabung dengan `step_key` (misal `?step_key=baku_kabag&step_status=pending&require_previous_approved=1` atau `?step_key=baku_aupk&step_status=pending&require_previous_approved=1`), mewajibkan semua step sebelum `step_key` sudah `approved`.
+- `approved_steps` — daftar `step_key` dipisah koma yang wajib sudah `approved` (misal `?approved_steps=kaprodi,kkn,keamanan` atau `?approved_steps=kaprodi,kkn,keamanan,baku_kabag`).
+- `pending_steps` — daftar `step_key` dipisah koma yang wajib masih `pending` (misal `?pending_steps=baku_kabag`).
 - `limit` (default `15`, maksimal `100`), `page`
 
 Contoh Response `200 OK`:
@@ -65,7 +66,7 @@ Contoh Response `200 OK`:
         "jenis_kelamin": "L",
         "tanggal": "2026-11-21",
         "signed_count": 1,
-        "total_steps": 5,
+        "total_steps": 6,
         "is_completed": false,
         "steps": [
           {
@@ -94,7 +95,7 @@ Contoh Response `200 OK`:
 - `GET /{id}`
 - `GET /by-nim/{nim}`
 
-Mengembalikan data SK 6 lengkap dengan 5 step timeline beserta `qr_data_uri` untuk step yang sudah berstatus `approved`.
+Mengembalikan data SK 6 lengkap dengan 6 step timeline beserta `qr_data_uri` untuk step yang sudah berstatus `approved`.
 
 ### C. Konfirmasi / Centang TTD QR
 - `POST /{id}/sign`
@@ -103,17 +104,17 @@ Mengembalikan data SK 6 lengkap dengan 5 step timeline beserta `qr_data_uri` unt
 Body JSON:
 ```json
 {
-  "step_key": "baku",
-  "signer_name": "Dr. Musleh Harry, SH, M.Hum",
+  "step_key": "baku_kabag",
+  "signer_name": "Kabag BAKU",
   "signer_nidn": "",
-  "title": "Kepala Biro Administrasi Keuangan",
+  "title": "Kabag BAKU",
   "source": "web-keuangan",
-  "notes": "Lunas administrasi keuangan",
+  "notes": "Lunas administrasi keuangan (BAKU Kabag)",
   "require_previous_approved": true
 }
 ```
 Keterangan field:
-- `step_key` (**wajib**): salah satu dari `kaprodi`, `baku`, `kkn`, `idaroh_syuun`, `keamanan`.
+- `step_key` (**wajib**): salah satu dari `kaprodi`, `kkn`, `keamanan`, `baku_kabag`, `baku_aupk`, `idaroh_syuun`.
 - `signer_name`, `signer_nidn`, `title`, `source`, `notes` (**opsional**): jika `signer_name` / `title` tidak dikirim, sistem otomatis memakai nama dan jabatan resmi yang sudah terdaftar di master `prodi` / `setting_jabatan`.
 - `require_previous_approved` (**opsional**, boolean, default `false`): jika `true`, request ditolak (`422`) apabila ada step sebelumnya yang masih `pending` (mencegah loncat step).
 - `required_steps` (**opsional**, array `step_key`): misal `["kaprodi"]`, menolak (`422`) apabila step syarat tersebut belum `approved`.
@@ -126,7 +127,7 @@ Setelah request berhasil, sistem otomatis memperbarui file PDF SK 6 sehingga QR 
 Body JSON:
 ```json
 {
-  "step_key": "baku"
+  "step_key": "baku_kabag"
 }
 ```
 
@@ -138,20 +139,31 @@ Body JSON:
 
 ## 4. Contoh Integrasi
 
-### cURL (Ambil List Siap BAKU setelah Kaprodi ACC & Konfirmasi Anti-Loncat)
+### cURL (Ambil List Siap BAKU Kabag / BAKU AUPK & Konfirmasi Anti-Loncat)
 ```bash
-# 1. Ambil daftar SK 6 yang sudah ACC Kaprodi dan belum ACC BAKU
-curl -X GET "https://staffapp.uiidalwa.web.id/api/external/sk6?ready_for_step=baku" \
+# 1. Ambil daftar SK 6 yang sudah ACC Kaprodi, KKN, Keamanan dan siap diproses BAKU Kabag
+curl -X GET "https://staffapp.uiidalwa.web.id/api/external/sk6?ready_for_step=baku_kabag" \
   -H "X-API-Key: sk6_xxxxxxxxxxxxxxxxx"
 
-# 2. Konfirmasi ACC BAKU (tolak 422 jika step sebelumnya belum ACC)
+# 2. Konfirmasi ACC BAKU Kabag (tolak 422 jika step sebelumnya belum ACC)
 curl -X POST "https://staffapp.uiidalwa.web.id/api/external/sk6/by-nim/202285290001/sign" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk6_xxxxxxxxxxxxxxxxx" \
   -d '{
-    "step_key": "baku",
+    "step_key": "baku_kabag",
     "source": "web-keuangan",
-    "notes": "Pembayaran ujian skripsi lunas",
+    "notes": "Pembayaran ujian skripsi lunas (Kabag BAKU)",
+    "require_previous_approved": true
+  }'
+
+# 3. Setelah BAKU Kabag ACC, konfirmasi ACC BAKU AUPK
+curl -X POST "https://staffapp.uiidalwa.web.id/api/external/sk6/by-nim/202285290001/sign" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk6_xxxxxxxxxxxxxxxxx" \
+  -d '{
+    "step_key": "baku_aupk",
+    "source": "web-keuangan",
+    "notes": "Disetujui Kepala Biro AUPK",
     "require_previous_approved": true
   }'
 ```
@@ -160,20 +172,20 @@ curl -X POST "https://staffapp.uiidalwa.web.id/api/external/sk6/by-nim/202285290
 ```php
 use Illuminate\Support\Facades\Http;
 
-// Ambil hanya data yang sudah ACC Kaprodi & siap diproses BAKU
+// Ambil hanya data yang siap diproses BAKU Kabag (lalu BAKU AUPK menggunakan ready_for_step=baku_aupk)
 $list = Http::withHeaders([
     'X-API-Key' => config('services.sk6.api_key'),
 ])->get(config('services.sk6.base_url'), [
-    'ready_for_step' => 'baku',
+    'ready_for_step' => 'baku_kabag',
 ]);
 
-// Konfirmasi ACC BAKU dengan pengaman agar tidak bisa loncat step
+// Konfirmasi ACC BAKU Kabag dengan pengaman agar tidak bisa loncat step
 $response = Http::withHeaders([
     'X-API-Key' => config('services.sk6.api_key'),
 ])->post(config('services.sk6.base_url') . '/by-nim/' . $nim . '/sign', [
-    'step_key' => 'baku',
+    'step_key' => 'baku_kabag',
     'source'   => 'web-keuangan',
-    'notes'    => 'Lunas via sistem keuangan',
+    'notes'    => 'Lunas via sistem keuangan (Kabag BAKU)',
     'require_previous_approved' => true,
 ]);
 

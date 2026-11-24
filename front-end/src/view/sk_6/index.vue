@@ -205,7 +205,7 @@ export default defineComponent({
         nim: item.nim,
         prodi_nama: item.prodi_nama || "-",
         signed_count: item.signed_count ?? 0,
-        total_steps: item.total_steps ?? 5,
+        total_steps: item.total_steps ?? 6,
       };
       try {
         const res = await apiGet(`/sk6/${item.id}/signatures`);
@@ -646,14 +646,14 @@ export default defineComponent({
               <span
                 class="badge"
                 :class="
-                  (item.signed_count || 0) === (item.total_steps || 5)
+                  (item.signed_count || 0) === (item.total_steps || 6)
                     ? 'bg-success-transparent'
                     : (item.signed_count || 0) > 0
                     ? 'bg-info-transparent'
                     : 'bg-warning-transparent'
                 "
               >
-                {{ item.signed_count || 0 }}/{{ item.total_steps || 5 }} TTD QR
+                {{ item.signed_count || 0 }}/{{ item.total_steps || 6 }} TTD QR
               </span>
               <small class="text-primary fw-medium">Lihat Timeline</small>
             </div>
@@ -708,7 +708,7 @@ export default defineComponent({
               Ber-TTD: proses upload Drive
             </span>
             <span v-else class="badge bg-light text-muted border">
-              Ber-TTD: {{ item.signed_count || 0 }}/{{ item.total_steps || 5 }}
+              Ber-TTD: {{ item.signed_count || 0 }}/{{ item.total_steps || 6 }}
             </span>
           </div>
         </template>
@@ -795,7 +795,7 @@ export default defineComponent({
                     <span class="fw-semibold fs-13">Progress Konfirmasi TTD</span>
                     <span class="badge bg-primary">
                       {{ activeSk6.signed_count || 0 }} /
-                      {{ activeSk6.total_steps || 5 }} Terkonfirmasi
+                      {{ activeSk6.total_steps || 6 }} Terkonfirmasi
                     </span>
                   </div>
                   <div class="progress" style="height: 8px">
@@ -805,7 +805,7 @@ export default defineComponent({
                       :style="{
                         width: `${
                           ((activeSk6.signed_count || 0) /
-                            (activeSk6.total_steps || 5)) *
+                            (activeSk6.total_steps || 6)) *
                           100
                         }%`,
                       }"
@@ -1051,7 +1051,7 @@ export default defineComponent({
                 API &amp; Dokumentasi Integrasi TTD QR SK 6
               </h5>
               <small class="text-muted">
-                Hubungkan website eksternal (Keuangan/BAKU, KKN, Keamanan, Prodi, Idaroh Syuun) untuk konfirmasi TTD SK 6.
+                Hubungkan website eksternal (Prodi, KKN, Keamanan, BAKU Kabag, BAKU AUPK, Idaroh Syuun) untuk konfirmasi TTD SK 6.
               </small>
             </div>
             <button
@@ -1175,10 +1175,10 @@ export default defineComponent({
                         <code>?prodi_id=...</code>,
                         <code>?jenis_kelamin=L|P</code> (atau <code>putra|putri</code>),
                         <code>?search=...</code>,
-                        <code>?step_key=baku&amp;step_status=pending</code>,
-                        <code>?ready_for_step=baku</code>,
+                        <code>?step_key=baku_kabag&amp;step_status=pending</code>,
+                        <code>?ready_for_step=baku_kabag</code>,
                         <code>?approved_steps=kaprodi</code>,
-                        <code>?pending_steps=baku</code>,
+                        <code>?pending_steps=baku_kabag</code>,
                         <code>?require_previous_approved=1</code>,
                         <code>?limit=15</code>)
                       </td>
@@ -1206,7 +1206,7 @@ export default defineComponent({
                     <tr>
                       <td><span class="badge bg-danger">POST</span></td>
                       <td><code>{{ apiConfig.base_url }}/{id}/revoke</code></td>
-                      <td>Batalkan konfirmasi TTD QR (body: <code>{"step_key":"baku"}</code>)</td>
+                      <td>Batalkan konfirmasi TTD QR (body: <code>{"step_key":"baku_kabag"}</code>)</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1236,15 +1236,15 @@ export default defineComponent({
                 </ul>
               </div>
 
-              <h6 class="fw-semibold mb-2">4. Contoh Request Konfirmasi TTD (Misal dari Web Keuangan / BAKU)</h6>
+              <h6 class="fw-semibold mb-2">4. Contoh Request Konfirmasi TTD (Misal dari Web Keuangan / BAKU Kabag &amp; BAKU AUPK)</h6>
               <pre class="bg-dark text-light p-3 rounded fs-12 mb-0" style="white-space: pre-wrap;">curl -X POST "{{ apiConfig.base_url }}/by-nim/202285290001/sign" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: {{ maskedApiKey(apiConfig.api_key) }}" \
   -d '{
-    "step_key": "baku",
-    "signer_name": "Dr. Musleh Harry, SH, M.Hum",
+    "step_key": "baku_kabag",
+    "signer_name": "Kabag BAKU",
     "source": "web-keuangan",
-    "notes": "Administrasi keuangan lunas",
+    "notes": "Verifikasi BAKU Kabag selesai",
     "require_previous_approved": true
   }'</pre>
             </template>
@@ -1282,7 +1282,7 @@ export default defineComponent({
                 Pengaturan Default Penandatangan — SK 6 (1 Modul)
               </h5>
               <small class="text-muted">
-                Atur pejabat &amp; jabatan default untuk 5 tahap SK 6 dan terapkan ke seluruh data modul ini.
+                Atur pejabat &amp; jabatan default untuk 6 tahap SK 6 dan terapkan ke seluruh data modul ini.
               </small>
             </div>
             <button

@@ -249,7 +249,7 @@ export default defineComponent({
         nim: item.nim,
         prodi: item.prodi || "-",
         signed_count: item.signed_count ?? 0,
-        total_steps: item.total_steps ?? 4,
+        total_steps: item.total_steps ?? 5,
         is_completed: Boolean(item.is_completed),
       };
       try {
@@ -874,14 +874,14 @@ export default defineComponent({
               <span
                 class="badge"
                 :class="
-                  (item.signed_count || 0) === (item.total_steps || 4)
+                  (item.signed_count || 0) === (item.total_steps || 5)
                     ? 'bg-success-transparent'
                     : (item.signed_count || 0) > 0
                     ? 'bg-info-transparent'
                     : 'bg-warning-transparent'
                 "
               >
-                {{ item.signed_count || 0 }}/{{ item.total_steps || 4 }} TTD QR
+                {{ item.signed_count || 0 }}/{{ item.total_steps || 5 }} TTD QR
               </span>
               <small class="text-primary fw-medium">Lihat Timeline</small>
             </div>
@@ -937,7 +937,7 @@ export default defineComponent({
               Ber-TTD: proses upload Drive
             </span>
             <span v-else class="badge bg-light text-muted border">
-              Ber-TTD: {{ item.signed_count || 0 }}/{{ item.total_steps || 4 }}
+              Ber-TTD: {{ item.signed_count || 0 }}/{{ item.total_steps || 5 }}
             </span>
           </div>
         </template>
@@ -1233,7 +1233,7 @@ export default defineComponent({
                     <span class="fw-semibold fs-13">Progress Konfirmasi TTD</span>
                     <span class="badge bg-primary">
                       {{ activeForm.signed_count || 0 }} /
-                      {{ activeForm.total_steps || 4 }} Terkonfirmasi
+                      {{ activeForm.total_steps || 5 }} Terkonfirmasi
                     </span>
                   </div>
                   <div class="progress" style="height: 8px">
@@ -1243,7 +1243,7 @@ export default defineComponent({
                       :style="{
                         width: `${
                           ((activeForm.signed_count || 0) /
-                            (activeForm.total_steps || 4)) *
+                            (activeForm.total_steps || 5)) *
                           100
                         }%`,
                       }"
@@ -1489,7 +1489,7 @@ export default defineComponent({
                 API &amp; Dokumentasi Integrasi TTD QR Form Pengambilan Ijazah
               </h5>
               <small class="text-muted">
-                Hubungkan website eksternal (Keuangan Pondok, BAKU, BAAK, Wakil Rektor I) untuk konfirmasi TTD QR.
+                Hubungkan website eksternal (Keuangan Pondok, BAKU Kabag, BAKU AUPK, BAAK, Wakil Rektor I) untuk konfirmasi TTD QR.
               </small>
             </div>
             <button
@@ -1614,9 +1614,9 @@ export default defineComponent({
                         <code>?jenis_kelamin=L|P</code> (atau <code>putra|putri</code>),
                         <code>?search=...</code>,
                         <code>?step_key=keuangan_pondok&amp;step_status=pending</code>,
-                        <code>?ready_for_step=baku</code>,
+                        <code>?ready_for_step=baku_kabag</code>,
                         <code>?approved_steps=keuangan_pondok</code>,
-                        <code>?pending_steps=baku</code>,
+                        <code>?pending_steps=baku_kabag</code>,
                         <code>?require_previous_approved=1</code>,
                         <code>?limit=15</code>)
                       </td>
@@ -1655,13 +1655,13 @@ export default defineComponent({
                 <div class="fw-semibold mb-1">Agar data baru muncul &amp; bisa di-ACC setelah step sebelumnya disetujui:</div>
                 <ul class="mb-0 ps-3">
                   <li>
-                    <strong>Filter list siap proses (contoh BAKU setelah Keu. Pondok ACC):</strong>
-                    <code>GET {{ apiConfig.base_url }}?ready_for_step=baku</code>
-                    (sama dengan <code>?step_key=baku&amp;step_status=pending&amp;require_previous_approved=1</code>)
+                    <strong>Filter list siap proses (contoh BAKU Kabag setelah Keu. Pondok ACC, lalu BAKU AUPK setelah BAKU Kabag ACC):</strong>
+                    <code>GET {{ apiConfig.base_url }}?ready_for_step=baku_kabag</code>
+                    atau <code>?ready_for_step=baku_aupk</code>
                   </li>
                   <li>
                     <strong>Filter syarat step tertentu:</strong>
-                    <code>?approved_steps=keuangan_pondok</code> atau <code>?approved_steps=keuangan_pondok,baku&amp;pending_steps=baak</code>
+                    <code>?approved_steps=keuangan_pondok</code> atau <code>?approved_steps=keuangan_pondok,baku_kabag,baku_aupk&amp;pending_steps=baak</code>
                   </li>
                   <li>
                     <strong>Filter Putra / Putri (Jenis Kelamin):</strong>
@@ -1674,15 +1674,15 @@ export default defineComponent({
                 </ul>
               </div>
 
-              <h6 class="fw-semibold mb-2">4. Contoh Request Konfirmasi TTD (Misal dari Web Keuangan / BAKU)</h6>
+              <h6 class="fw-semibold mb-2">4. Contoh Request Konfirmasi TTD (Misal dari Web Keuangan / BAKU Kabag &amp; BAKU AUPK)</h6>
               <pre class="bg-dark text-light p-3 rounded fs-12 mb-0" style="white-space: pre-wrap;">curl -X POST "{{ apiConfig.base_url }}/by-nim/202285290001/sign" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: {{ maskedApiKey(apiConfig.api_key) }}" \
   -d '{
-    "step_key": "baku",
-    "signer_name": "Dr. Musleh Harry, SH, M.Hum",
+    "step_key": "baku_kabag",
+    "signer_name": "Kabag BAKU",
     "source": "web-keuangan",
-    "notes": "Bebas tanggungan keuangan jamiah",
+    "notes": "Bebas tanggungan keuangan jamiah (Kabag BAKU)",
     "require_previous_approved": true
   }'</pre>
             </template>
@@ -1720,7 +1720,7 @@ export default defineComponent({
                 Pengaturan Default Penandatangan (1 Modul)
               </h5>
               <small class="text-muted">
-                Atur pejabat &amp; jabatan default untuk 4 tahap Form Pengambilan Ijazah dan terapkan ke seluruh data modul ini.
+                Atur pejabat &amp; jabatan default untuk 5 tahap Form Pengambilan Ijazah dan terapkan ke seluruh data modul ini.
               </small>
             </div>
             <button

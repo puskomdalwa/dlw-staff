@@ -1,6 +1,6 @@
 # Form Pengambilan Ijazah Digital QR Signature & External Integration API
 
-Dokumen ini menjelaskan integrasi Tanda Tangan QR (4 Tahap Berurutan) untuk modul **Form Pengambilan Ijazah (Form Bebas Tanggungan)** pada aplikasi Staff UII Dalwa agar website/layanan lain (Keuangan Pondok, BAKU, BAAK, Wakil Rektor I) dapat mengecek status serta mengonfirmasi TTD QR secara langsung.
+Dokumen ini menjelaskan integrasi Tanda Tangan QR (5 Tahap Berurutan) untuk modul **Form Pengambilan Ijazah (Form Bebas Tanggungan)** pada aplikasi Staff UII Dalwa agar website/layanan lain (Keuangan Pondok, BAKU Kabag, BAKU AUPK, BAAK, Wakil Rektor I) dapat mengecek status serta mengonfirmasi TTD QR secara langsung.
 
 ---
 
@@ -15,16 +15,17 @@ Dokumen ini menjelaskan integrasi Tanda Tangan QR (4 Tahap Berurutan) untuk modu
 
 ## 2. Daftar Tahap (`step_key`)
 
-Terdapat 4 tahap tanda tangan QR:
+Terdapat 5 tahap tanda tangan QR:
 
 | Urutan | `step_key` | Jabatan / Unit | Keterangan |
 | :---: | :--- | :--- | :--- |
 | 1 | `keuangan_pondok` | Keuangan Pondok | Bebas Tanggungan Keuangan Pondok |
-| 2 | `baku` | Kepala Biro Administrasi Keuangan (Keuangan Jamiah) | Bebas Tanggungan Keuangan Jamiah |
-| 3 | `baak` | Kepala BAAK (Akademik Jamiah) | Bebas Tanggungan Akademik Jamiah |
-| 4 | `warek_1` | Wakil Rektor I | Rekomendasi Yayasan / Wakil Rektor I |
+| 2 | `baku_kabag` | Kabag BAKU (Keuangan Jamiah) | Bebas Tanggungan Keuangan Jamiah — Tahap 1 |
+| 3 | `baku_aupk` | Kepala Biro AUPK (Keuangan Jamiah) | Bebas Tanggungan Keuangan Jamiah — Tahap 2 |
+| 4 | `baak` | Kepala BAAK (Akademik Jamiah) | Bebas Tanggungan Akademik Jamiah |
+| 5 | `warek_1` | Wakil Rektor I | Rekomendasi Yayasan / Wakil Rektor I |
 
-> Ketika seluruh **4/4 step** berstatus `approved`, sistem otomatis men-generate file PDF bertanda tangan QR (`signed_local_path`) dan mengirimkannya ke antrean upload Google Drive (`signed_drive_link`). URL Drive pada tabel terbagi dua: **Tanpa TTD** (`drive_link`) dan **Ber-TTD (QR)** (`signed_drive_link`).
+> Ketika seluruh **5/5 step** berstatus `approved`, sistem otomatis men-generate file PDF bertanda tangan QR (`signed_local_path`) dan mengirimkannya ke antrean upload Google Drive (`signed_drive_link`). URL Drive pada tabel terbagi dua: **Tanpa TTD** (`drive_link`) dan **Ber-TTD (QR)** (`signed_drive_link`).
 
 ---
 
@@ -39,10 +40,10 @@ Query params opsional:
 - `jenis_kelamin` — filter Putra / Putri (`L` atau `putra` untuk Putra, `P` atau `putri` untuk Putri). *Alias: `putra_putri` / `gender`.*
 - `search` — cari nama/NIM/prodi
 - `step_key` + `step_status` (`pending` / `approved`) — filter status step tertentu
-- `ready_for_step` — **(Rekomendasi untuk alur berjenjang)** hanya tampilkan data yang **semua step sebelumnya sudah `approved`** dan step target masih `pending`. Contoh untuk BAKU di Simkeu: `?ready_for_step=baku` (hanya muncul setelah `keuangan_pondok` ACC dan `baku` belum ACC).
-- `require_previous_approved` (`1` / `true`) — digabung dengan `step_key` (misal `?step_key=baku&step_status=pending&require_previous_approved=1`), mewajibkan semua step sebelum `step_key` sudah `approved`.
-- `approved_steps` — daftar `step_key` dipisah koma yang wajib sudah `approved` (misal `?approved_steps=keuangan_pondok` atau `?approved_steps=keuangan_pondok,baku`).
-- `pending_steps` — daftar `step_key` dipisah koma yang wajib masih `pending` (misal `?pending_steps=baku`).
+- `ready_for_step` — **(Rekomendasi untuk alur berjenjang)** hanya tampilkan data yang **semua step sebelumnya sudah `approved`** dan step target masih `pending`. Contoh untuk BAKU di Simkeu: `?ready_for_step=baku_kabag` (muncul setelah `keuangan_pondok` ACC) lalu `?ready_for_step=baku_aupk` (muncul setelah `baku_kabag` ACC).
+- `require_previous_approved` (`1` / `true`) — digabung dengan `step_key` (misal `?step_key=baku_kabag&step_status=pending&require_previous_approved=1` atau `?step_key=baku_aupk&step_status=pending&require_previous_approved=1`), mewajibkan semua step sebelum `step_key` sudah `approved`.
+- `approved_steps` — daftar `step_key` dipisah koma yang wajib sudah `approved` (misal `?approved_steps=keuangan_pondok` atau `?approved_steps=keuangan_pondok,baku_kabag,baku_aupk`).
+- `pending_steps` — daftar `step_key` dipisah koma yang wajib masih `pending` (misal `?pending_steps=baku_kabag`).
 - `limit` — jumlah per halaman (1..100, default 15)
 
 ### B. Detail Berdasarkan ID / NIM
@@ -56,15 +57,15 @@ Query params opsional:
 Contoh body JSON:
 ```json
 {
-  "step_key": "baku",
-  "signer_name": "Dr. Musleh Harry, SH, M.Hum",
+  "step_key": "baku_kabag",
+  "signer_name": "Kabag BAKU",
   "signer_nidn": "123456",
   "source": "web_keuangan",
-  "notes": "Lunas seluruh administrasi keuangan",
+  "notes": "Lunas seluruh administrasi keuangan (Kabag BAKU)",
   "require_previous_approved": true
 }
 ```
-Parameter wajib: `step_key` (`keuangan_pondok` | `baku` | `baak` | `warek_1`).
+Parameter wajib: `step_key` (`keuangan_pondok` | `baku_kabag` | `baku_aupk` | `baak` | `warek_1`).
 Field opsional: `signer_name`, `signer_nidn`, `title`, `source`, `notes`, serta:
 - `require_previous_approved` (boolean, default `false`): jika `true`, ditolak (`422`) bila ada step sebelumnya yang masih `pending` (tidak bisa loncat step).
 - `required_steps` (array `step_key`): misal `["keuangan_pondok"]`, ditolak (`422`) bila step syarat tersebut belum `approved`.
@@ -82,14 +83,17 @@ Membatalkan status step menjadi `pending` dan menghapus file PDF Ber-TTD & Drive
 
 ---
 
-## 4. Contoh Filter Berjenjang (Contoh untuk Simkeu / BAKU)
+## 4. Contoh Filter Berjenjang (Contoh untuk Simkeu / BAKU Kabag -> BAKU AUPK)
 
-- List yang siap diproses BAKU (sudah ACC Keuangan Pondok & belum ACC BAKU):
-  `GET /api/external/form-pengambilan-ijazah?ready_for_step=baku`
+- List yang siap diproses BAKU Kabag (sudah ACC Keuangan Pondok & belum ACC BAKU Kabag):
+  `GET /api/external/form-pengambilan-ijazah?ready_for_step=baku_kabag`
+- List yang siap diproses BAKU AUPK (sudah ACC Keuangan Pondok + BAKU Kabag & belum ACC BAKU AUPK):
+  `GET /api/external/form-pengambilan-ijazah?ready_for_step=baku_aupk`
 - Atau dengan filter eksplisit:
-  `GET /api/external/form-pengambilan-ijazah?approved_steps=keuangan_pondok&pending_steps=baku`
-- Konfirmasi ACC BAKU dengan pengaman agar tidak bisa loncat step (`422` jika `keuangan_pondok` masih `pending`):
-  `POST /api/external/form-pengambilan-ijazah/by-nim/{nim}/sign` dengan body `{"step_key": "baku", "require_previous_approved": true}`
+  `GET /api/external/form-pengambilan-ijazah?approved_steps=keuangan_pondok,baku_kabag&pending_steps=baku_aupk`
+- Konfirmasi ACC BAKU Kabag lalu BAKU AUPK dengan pengaman agar tidak bisa loncat step (`422` jika step sebelumnya masih `pending`):
+  - `POST /api/external/form-pengambilan-ijazah/by-nim/{nim}/sign` dengan body `{"step_key": "baku_kabag", "require_previous_approved": true}`
+  - `POST /api/external/form-pengambilan-ijazah/by-nim/{nim}/sign` dengan body `{"step_key": "baku_aupk", "require_previous_approved": true}`
 
 ---
 

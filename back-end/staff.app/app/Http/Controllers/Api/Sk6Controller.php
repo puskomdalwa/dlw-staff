@@ -867,7 +867,7 @@ class Sk6Controller extends Controller
             if (!$signatureService->isCompleted($data)) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'PDF SK 6 baru dapat diunduh setelah seluruh 5 tanda tangan QR lengkap.'
+                    'message' => 'PDF SK 6 baru dapat diunduh setelah seluruh 6 tanda tangan QR lengkap.'
                 ], 422);
             }
 

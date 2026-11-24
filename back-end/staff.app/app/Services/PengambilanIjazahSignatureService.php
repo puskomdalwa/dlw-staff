@@ -17,14 +17,16 @@ class PengambilanIjazahSignatureService
 {
     public const STEP_ORDER = [
         'keuangan_pondok' => 1,
-        'baku' => 2,
-        'baak' => 3,
-        'warek_1' => 4,
+        'baku_kabag' => 2,
+        'baku_aupk' => 3,
+        'baak' => 4,
+        'warek_1' => 5,
     ];
 
     public const SHORT_LABELS = [
         'keuangan_pondok' => 'Keu. Pondok',
-        'baku' => 'BAKU',
+        'baku_kabag' => 'BAKU Kabag',
+        'baku_aupk' => 'BAKU AUPK',
         'baak' => 'BAAK',
         'warek_1' => 'Warek I',
     ];
@@ -40,11 +42,17 @@ class PengambilanIjazahSignatureService
         $pondokNama = $settingPondok?->tandaTangan?->nama ?: 'Keuangan Pondok';
         $pondokNidn = $settingPondok?->nidn;
 
-        $settingBaku = SettingJabatan::with('tandaTangan')
-            ->where('kunci_jabatan', 'kepala_biro_keuangan')
+        $settingBakuKabag = SettingJabatan::with('tandaTangan')
+            ->whereIn('kunci_jabatan', ['baku_kabag', 'kabag_baku', 'kabag_keuangan'])
             ->first();
-        $bakuNama = $settingBaku?->tandaTangan?->nama ?: 'Dr. Musleh Harry, SH, M.Hum';
-        $bakuNidn = $settingBaku?->nidn;
+        $bakuKabagNama = $settingBakuKabag?->tandaTangan?->nama ?: 'Kabag BAKU';
+        $bakuKabagNidn = $settingBakuKabag?->nidn;
+
+        $settingBakuAupk = SettingJabatan::with('tandaTangan')
+            ->whereIn('kunci_jabatan', ['baku_aupk', 'kepala_biro_aupk', 'kepala_biro_keuangan'])
+            ->first();
+        $bakuAupkNama = $settingBakuAupk?->tandaTangan?->nama ?: 'Dr. Musleh Harry, SH, M.Hum';
+        $bakuAupkNidn = $settingBakuAupk?->nidn;
 
         $settingBaak = SettingJabatan::with('tandaTangan')
             ->whereIn('kunci_jabatan', ['BAAK', 'ka_baak', 'kepala_baak'])
@@ -68,20 +76,27 @@ class PengambilanIjazahSignatureService
             ],
             [
                 'step_order' => 2,
-                'step_key' => 'baku',
-                'title' => 'Kepala Biro Administrasi Keuangan (Keuangan Jamiah)',
-                'signer_name' => $bakuNama,
-                'signer_nidn' => $bakuNidn,
+                'step_key' => 'baku_kabag',
+                'title' => 'Kabag BAKU (Keuangan Jamiah)',
+                'signer_name' => $bakuKabagNama,
+                'signer_nidn' => $bakuKabagNidn,
             ],
             [
                 'step_order' => 3,
+                'step_key' => 'baku_aupk',
+                'title' => 'Kepala Biro AUPK (Keuangan Jamiah)',
+                'signer_name' => $bakuAupkNama,
+                'signer_nidn' => $bakuAupkNidn,
+            ],
+            [
+                'step_order' => 4,
                 'step_key' => 'baak',
                 'title' => 'Kepala BAAK (Akademik Jamiah)',
                 'signer_name' => $baakNama,
                 'signer_nidn' => $baakNidn,
             ],
             [
-                'step_order' => 4,
+                'step_order' => 5,
                 'step_key' => 'warek_1',
                 'title' => 'Wakil Rektor I',
                 'signer_name' => $warekNama,
@@ -96,6 +111,24 @@ class PengambilanIjazahSignatureService
     public function getSignerDefaults(): array
     {
         $existing = PengambilanIjazahSignerDefault::all()->keyBy('step_key');
+        if ($existing->has('baku')) {
+            $legacyBaku = $existing->get('baku');
+            if (!$existing->has('baku_aupk')) {
+                $updates = [
+                    'step_key' => 'baku_aupk',
+                    'step_order' => self::STEP_ORDER['baku_aupk'],
+                ];
+                if ($legacyBaku->title === 'Kepala Biro Administrasi Keuangan (Keuangan Jamiah)') {
+                    $updates['title'] = 'Kepala Biro AUPK (Keuangan Jamiah)';
+                }
+                $legacyBaku->update($updates);
+                $existing->put('baku_aupk', $legacyBaku->fresh());
+            } else {
+                $legacyBaku->delete();
+            }
+            $existing->forget('baku');
+        }
+
         $fallback = $this->buildInitialDefaults();
 
         $results = [];
@@ -109,6 +142,11 @@ class PengambilanIjazahSignatureService
                     'signer_name' => $def['signer_name'],
                     'signer_nidn' => $def['signer_nidn'],
                 ]);
+            } else {
+                if ((int) $row->step_order !== (int) $def['step_order']) {
+                    $row->update(['step_order' => $def['step_order']]);
+                    $row = $row->fresh();
+                }
             }
 
             $results[] = [
@@ -192,7 +230,7 @@ class PengambilanIjazahSignatureService
     }
 
     /**
-     * Resolve default metadata (order, title, signer_name, signer_nidn) for the 4 Form Pengambilan Ijazah steps.
+     * Resolve default metadata (order, title, signer_name, signer_nidn) for the 5 Form Pengambilan Ijazah steps.
      */
     public function resolveStepDefinitions(FormPengambilanIjazah $form): array
     {
@@ -200,13 +238,17 @@ class PengambilanIjazahSignatureService
     }
 
     /**
-     * Ensure all 4 timeline steps exist for a given FormPengambilanIjazah record.
+     * Ensure all 5 timeline steps exist for a given FormPengambilanIjazah record.
      */
     public function ensureStepsForForm(FormPengambilanIjazah $form): Collection
     {
         if ($form->relationLoaded('signatures')) {
             $preloaded = $form->getRelation('signatures');
-            if ($preloaded instanceof Collection && $preloaded->count() === count(self::STEP_ORDER)) {
+            if (
+                $preloaded instanceof Collection
+                && $preloaded->count() === count(self::STEP_ORDER)
+                && $preloaded->every(fn (PengambilanIjazahSignature $s) => array_key_exists($s->step_key, self::STEP_ORDER))
+            ) {
                 return $preloaded->sortBy('step_order')->values();
             }
         }
@@ -215,6 +257,24 @@ class PengambilanIjazahSignatureService
         $existing = PengambilanIjazahSignature::where('form_pengambilan_ijazah_id', $form->id)
             ->get()
             ->keyBy('step_key');
+
+        if ($existing->has('baku')) {
+            $legacyBaku = $existing->get('baku');
+            if (!$existing->has('baku_aupk')) {
+                $updates = [
+                    'step_key' => 'baku_aupk',
+                    'step_order' => self::STEP_ORDER['baku_aupk'],
+                ];
+                if ($legacyBaku->title === 'Kepala Biro Administrasi Keuangan (Keuangan Jamiah)') {
+                    $updates['title'] = 'Kepala Biro AUPK (Keuangan Jamiah)';
+                }
+                $legacyBaku->update($updates);
+                $existing->put('baku_aupk', $legacyBaku->fresh());
+            } else {
+                $legacyBaku->delete();
+            }
+            $existing->forget('baku');
+        }
 
         foreach ($definitions as $def) {
             if (!$existing->has($def['step_key'])) {
@@ -229,6 +289,11 @@ class PengambilanIjazahSignatureService
                     'signature_token' => $this->generateUniqueToken(),
                 ]);
                 $existing->put($def['step_key'], $created);
+            } else {
+                $step = $existing->get($def['step_key']);
+                if ((int) $step->step_order !== (int) $def['step_order']) {
+                    $step->update(['step_order' => $def['step_order']]);
+                }
             }
         }
 

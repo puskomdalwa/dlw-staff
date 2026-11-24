@@ -17,7 +17,8 @@ class PengambilanIjazahSignatureController extends Controller
     private const SERVICE_KEY = 'pengambilan_ijazah_external';
     private const SERVICE_NAME = 'Form Pengambilan Ijazah External Integration';
     private const KEY_PREFIX = 'pij_';
-    private const STEP_RULE = 'required|in:keuangan_pondok,baku,baak,warek_1';
+    private const STEP_RULE = 'required|in:keuangan_pondok,baku_kabag,baku_aupk,baak,warek_1';
+    private const STEP_ITEM_RULE = 'string|in:keuangan_pondok,baku_kabag,baku_aupk,baak,warek_1';
 
     public function __construct(private PengambilanIjazahSignatureService $signatureService)
     {
@@ -183,9 +184,10 @@ class PengambilanIjazahSignatureController extends Controller
                 'updated_at' => $record->updated_at?->toIso8601String(),
                 'step_keys' => [
                     ['step_order' => 1, 'step_key' => 'keuangan_pondok', 'title' => 'Keuangan Pondok'],
-                    ['step_order' => 2, 'step_key' => 'baku', 'title' => 'Kepala Biro Administrasi Keuangan (Keuangan Jamiah)'],
-                    ['step_order' => 3, 'step_key' => 'baak', 'title' => 'Kepala BAAK (Akademik Jamiah)'],
-                    ['step_order' => 4, 'step_key' => 'warek_1', 'title' => 'Wakil Rektor I'],
+                    ['step_order' => 2, 'step_key' => 'baku_kabag', 'title' => 'Kabag BAKU (Keuangan Jamiah)'],
+                    ['step_order' => 3, 'step_key' => 'baku_aupk', 'title' => 'Kepala Biro AUPK (Keuangan Jamiah)'],
+                    ['step_order' => 4, 'step_key' => 'baak', 'title' => 'Kepala BAAK (Akademik Jamiah)'],
+                    ['step_order' => 5, 'step_key' => 'warek_1', 'title' => 'Wakil Rektor I'],
                 ],
             ],
             'message' => 'Konfigurasi integrasi API Form Pengambilan Ijazah berhasil diambil',
@@ -505,7 +507,7 @@ class PengambilanIjazahSignatureController extends Controller
             'notes' => 'nullable|string|max:1000',
             'require_previous_approved' => 'sometimes|boolean',
             'required_steps' => 'sometimes|array',
-            'required_steps.*' => 'string|in:keuangan_pondok,baku,baak,warek_1',
+            'required_steps.*' => self::STEP_ITEM_RULE,
         ]);
 
         if ($validator->fails()) {

@@ -274,18 +274,35 @@
 
     <table class="ttd" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
         <tr>
-            <td width="55%"></td>
-            <td width="45%" style="text-align:center;">
-                Bangil, {{ $tanggal_surat }}<br>
-                {{ $skak_title ?? 'Kepala Biro Administrasi Keuangan' }},<br>
-                @if(!empty($qr_baku))
+            <td width="50%" style="text-align:center; vertical-align:top;">
+                <br>
+                {{ $skak_kabag_title ?? 'Kabag BAKU' }},<br>
+                @if(!empty($qr_baku_kabag))
                     <div style="margin: 8px 0;">
-                        <img src="{{ $qr_baku }}" style="width: 82px; height: 82px;" alt="QR BAKU">
+                        <img src="{{ $qr_baku_kabag }}" style="width: 82px; height: 82px;" alt="QR BAKU Kabag">
                     </div>
                 @else
                     <br><br><br>
                 @endif
-                {{ $skak_nama }}
+                {{ $skak_kabag_nama ?? 'Kabag BAKU' }}
+                @if(!empty($skak_kabag_nidn))
+                    <br>NIDN/NIY. {{ $skak_kabag_nidn }}
+                @endif
+            </td>
+            <td width="50%" style="text-align:center; vertical-align:top;">
+                Bangil, {{ $tanggal_surat }}<br>
+                {{ $skak_aupk_title ?? 'Kepala Biro AUPK' }},<br>
+                @if(!empty($qr_baku_aupk))
+                    <div style="margin: 8px 0;">
+                        <img src="{{ $qr_baku_aupk }}" style="width: 82px; height: 82px;" alt="QR BAKU AUPK">
+                    </div>
+                @else
+                    <br><br><br>
+                @endif
+                {{ $skak_aupk_nama ?? 'Dr. Musleh Harry, SH, M.Hum' }}
+                @if(!empty($skak_aupk_nidn))
+                    <br>NIDN/NIY. {{ $skak_aupk_nidn }}
+                @endif
             </td>
         </tr>
     </table>
