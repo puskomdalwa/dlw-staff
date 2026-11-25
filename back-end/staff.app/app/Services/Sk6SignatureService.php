@@ -26,6 +26,7 @@ class Sk6SignatureService
         'baku_kabag' => 4,
         'baku_aupk' => 5,
         'idaroh_syuun' => 6,
+        'warek_1' => 7,
     ];
 
     public const SHORT_LABELS = [
@@ -33,8 +34,13 @@ class Sk6SignatureService
         'kkn' => 'KKN',
         'keamanan' => 'Keamanan',
         'baku_kabag' => 'BAKU Kabag',
-        'baku_aupk' => 'BAKU AUPK',
+        'baku_aupk' => 'BAKU',
         'idaroh_syuun' => 'Idaroh Syuun',
+        'warek_1' => 'Wakil Rektor 1',
+    ];
+
+    public const HIDDEN_TIMELINE_STEPS = [
+        'baku_kabag',
     ];
 
     public const STAFF_SIGNABLE_STEPS = [
@@ -75,6 +81,12 @@ class Sk6SignatureService
         $settingQa = SettingJabatan::with('tandaTangan')->where('kunci_jabatan', 'ketua_qismul_aman')->first();
         $qaNama = $settingQa?->tandaTangan?->nama ?: 'Ust. Fathul Munif';
         $qaNidn = \App\Services\DosenService::resolveNidn($settingQa?->nidn, $qaNama);
+
+        $settingWarek = SettingJabatan::with('tandaTangan')
+            ->whereIn('kunci_jabatan', ['warek_1', 'wakil_rektor_1'])
+            ->first();
+        $warekNama = $settingWarek?->tandaTangan?->nama ?: 'Dr. Muhamad Solehudin M.H.I.';
+        $warekNidn = \App\Services\DosenService::resolveNidn($settingWarek?->nidn, $warekNama);
 
         return [
             [
@@ -118,6 +130,13 @@ class Sk6SignatureService
                 'title' => 'Idaroh Syuun',
                 'signer_name' => $idarohNama,
                 'signer_nidn' => $idarohNidn,
+            ],
+            [
+                'step_order' => 7,
+                'step_key' => 'warek_1',
+                'title' => 'Wakil Rektor 1',
+                'signer_name' => $warekNama,
+                'signer_nidn' => $warekNidn,
             ],
         ];
     }
@@ -342,6 +361,11 @@ class Sk6SignatureService
         $qaNama = $defQa['signer_name'] ?: ($sk6->skQismulAman?->ketua ?: 'Ust. Fathul Munif');
         $qaNidn = \App\Services\DosenService::resolveNidn($defQa['signer_nidn'] ?? $sk6->skQismulAman?->nidn, $qaNama);
 
+        $defWarek = $defaults->get('warek_1');
+        $warekTitle = $defWarek['title'] ?? 'Wakil Rektor 1';
+        $warekNama = $defWarek['signer_name'] ?: 'Dr. Muhamad Solehudin M.H.I.';
+        $warekNidn = \App\Services\DosenService::resolveNidn($defWarek['signer_nidn'] ?? null, $warekNama);
+
         return [
             [
                 'step_order' => 1,
@@ -384,6 +408,13 @@ class Sk6SignatureService
                 'title' => $idarohTitle,
                 'signer_name' => $idarohNama,
                 'signer_nidn' => $idarohNidn,
+            ],
+            [
+                'step_order' => 7,
+                'step_key' => 'warek_1',
+                'title' => $warekTitle,
+                'signer_name' => $warekNama,
+                'signer_nidn' => $warekNidn,
             ],
         ];
     }
@@ -450,15 +481,18 @@ class Sk6SignatureService
     /**
      * Format timeline steps for API / UI responses.
      */
-    public function formatTimeline(SuratKeterangan6 $sk6, bool $withQrDataUri = false): array
+    public function formatTimeline(SuratKeterangan6 $sk6, bool $withQrDataUri = false, bool $includeHidden = true): array
     {
         $steps = $this->ensureStepsForSk6($sk6);
+        if (!$includeHidden) {
+            $steps = $steps->reject(fn (Sk6Signature $step) => in_array($step->step_key, self::HIDDEN_TIMELINE_STEPS, true))->values();
+        }
 
-        return $steps->map(function (Sk6Signature $step) use ($withQrDataUri) {
+        return $steps->values()->map(function (Sk6Signature $step, int $idx) use ($withQrDataUri, $includeHidden) {
             $verifyUrl = url('/verify/sk6/' . $step->signature_token);
             $item = [
                 'id' => $step->id,
-                'step_order' => $step->step_order,
+                'step_order' => $includeHidden ? $step->step_order : ($idx + 1),
                 'step_key' => $step->step_key,
                 'short_label' => self::SHORT_LABELS[$step->step_key] ?? $step->step_key,
                 'title' => $step->title,
@@ -707,8 +741,8 @@ class Sk6SignatureService
         $steps = $this->ensureStepsForSk6($sk6)->keyBy('step_key');
         $qrCodes = [];
         foreach (array_keys(self::STEP_ORDER) as $key) {
-            if ($key === 'baku_kabag') {
-                // BAKU Kabag hanya tahap verifikasi timeline/API dan tidak dicetak di PDF
+            if (in_array($key, ['baku_kabag', 'idaroh_syuun'], true)) {
+                // BAKU Kabag & Idaroh Syuun hanya tahap verifikasi timeline/API (Idaroh Syuun tanpa surat) dan tidak dicetak di PDF
                 $qrCodes[$key] = '';
                 continue;
             }
@@ -727,7 +761,7 @@ class Sk6SignatureService
         $kaprodiStep = $steps->get('kaprodi');
         $bakuAupkStep = $steps->get('baku_aupk');
         $kknStep = $steps->get('kkn');
-        $idarohStep = $steps->get('idaroh_syuun');
+        $warekStep = $steps->get('warek_1');
         $qaStep = $steps->get('keamanan');
 
         return [
@@ -768,10 +802,10 @@ class Sk6SignatureService
             'sktkp_nidn' => $kknStep?->signer_nidn,
             'qr_kkn' => $qrCodes['kkn'],
 
-            'skukd_title' => $idarohStep?->title ?: 'Idaroh Syuun',
-            'skukd_nama' => $idarohStep?->signer_name ?: 'Dr. Habib Zainal Abidin Bilfaqih, M.Pd.',
-            'skukd_nidn' => $idarohStep?->signer_nidn,
-            'qr_idaroh_syuun' => $qrCodes['idaroh_syuun'],
+            'skukd_title' => $warekStep?->title ?: 'Wakil Rektor 1',
+            'skukd_nama' => $warekStep?->signer_name ?: 'Dr. Muhamad Solehudin M.H.I.',
+            'skukd_nidn' => $warekStep?->signer_nidn,
+            'qr_warek_1' => $qrCodes['warek_1'],
 
             'skqa_title' => $qaStep?->title ?: 'Ketua Qismul Aman',
             'skqa_nama' => $qaStep?->signer_name ?: 'Ust. Fathul Munif',

@@ -71,7 +71,7 @@ class Sk6Controller extends Controller
         $signatureService = app(Sk6SignatureService::class);
 
         $formattedData = $data->getCollection()->map(function ($item) use ($signatureService) {
-            $steps = $signatureService->formatTimeline($item, false);
+            $steps = $signatureService->formatTimeline($item, false, false);
             $signedCount = collect($steps)->where('status', 'approved')->count();
 
             return [
@@ -84,7 +84,7 @@ class Sk6Controller extends Controller
                 'created_at' => $item->created_at,
                 'signed_count' => $signedCount,
                 'total_steps' => count($steps),
-                'is_completed' => $signedCount === count($steps),
+                'is_completed' => $signatureService->isCompleted($item),
                 'signatures' => $steps,
             ];
         });
@@ -867,7 +867,7 @@ class Sk6Controller extends Controller
             if (!$signatureService->isCompleted($data)) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'PDF SK 6 baru dapat diunduh setelah seluruh 6 tanda tangan QR lengkap.'
+                    'message' => 'PDF SK 6 baru dapat diunduh setelah seluruh tanda tangan QR lengkap.'
                 ], 422);
             }
 

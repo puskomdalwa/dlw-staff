@@ -144,7 +144,7 @@
                     @foreach($timeline as $item)
                         <div class="step {{ $item['is_signed'] ? 'active' : '' }}">
                             <div>
-                                <strong>{{ $item['step_order'] }}. {{ $item['title'] }}</strong><br>
+                                <strong>{{ $item['step_order'] }}. {{ $item['step_key'] === 'baku_aupk' ? 'BAKU' : $item['title'] }}</strong><br>
                                 <span style="color:#6b7280;">{{ $item['signer_name'] ?: '-' }}</span>
                             </div>
                             <span class="badge {{ $item['is_signed'] ? 'badge-ok' : 'badge-wait' }}">

@@ -338,7 +338,7 @@
                   </div>
                   <div class="row g-2 text-dark fs-13 ps-3">
                     <div class="col-6 col-md-3">1. Keuangan Pondok</div>
-                    <div class="col-6 col-md-3">2. Keuangan Jamiah (BAKU Kabag &amp; AUPK)</div>
+                    <div class="col-6 col-md-3">2. Keuangan Jamiah (BAKU)</div>
                     <div class="col-6 col-md-3">3. Jilid Skripsi</div>
                     <div class="col-6 col-md-3">4. TTD Yayasan</div>
                   </div>

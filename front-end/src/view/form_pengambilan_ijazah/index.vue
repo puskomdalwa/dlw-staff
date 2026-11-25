@@ -249,7 +249,7 @@ export default defineComponent({
         nim: item.nim,
         prodi: item.prodi || "-",
         signed_count: item.signed_count ?? 0,
-        total_steps: item.total_steps ?? 5,
+        total_steps: item.total_steps ?? 4,
         is_completed: Boolean(item.is_completed),
       };
       try {
@@ -883,14 +883,14 @@ export default defineComponent({
               <span
                 class="badge"
                 :class="
-                  (item.signed_count || 0) === (item.total_steps || 5)
+                  (item.signed_count || 0) === (item.total_steps || 4)
                     ? 'bg-success-transparent'
                     : (item.signed_count || 0) > 0
                     ? 'bg-info-transparent'
                     : 'bg-warning-transparent'
                 "
               >
-                {{ item.signed_count || 0 }}/{{ item.total_steps || 5 }} TTD QR
+                {{ item.signed_count || 0 }}/{{ item.total_steps || 4 }} TTD QR
               </span>
               <small class="text-primary fw-medium">Lihat Timeline</small>
             </div>
@@ -946,7 +946,7 @@ export default defineComponent({
               Ber-TTD: proses upload Drive
             </span>
             <span v-else class="badge bg-light text-muted border">
-              Ber-TTD: {{ item.signed_count || 0 }}/{{ item.total_steps || 5 }}
+              Ber-TTD: {{ item.signed_count || 0 }}/{{ item.total_steps || 4 }}
             </span>
           </div>
         </template>
@@ -1242,7 +1242,7 @@ export default defineComponent({
                     <span class="fw-semibold fs-13">Progress Konfirmasi TTD</span>
                     <span class="badge bg-primary">
                       {{ activeForm.signed_count || 0 }} /
-                      {{ activeForm.total_steps || 5 }} Terkonfirmasi
+                      {{ activeForm.total_steps || 4 }} Terkonfirmasi
                     </span>
                   </div>
                   <div class="progress" style="height: 8px">
@@ -1252,7 +1252,7 @@ export default defineComponent({
                       :style="{
                         width: `${
                           ((activeForm.signed_count || 0) /
-                            (activeForm.total_steps || 5)) *
+                            (activeForm.total_steps || 4)) *
                           100
                         }%`,
                       }"
@@ -1306,9 +1306,12 @@ export default defineComponent({
                           <div>
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                               <span class="fw-semibold fs-14">
-                                {{ step.title }}
+                                {{ step.step_key === 'baku_aupk' ? 'BAKU' : step.title }}
                               </span>
-                              <span class="badge bg-light text-dark border">
+                              <span
+                                v-if="step.step_key !== 'baku_aupk'"
+                                class="badge bg-light text-dark border"
+                              >
                                 {{ step.step_key }}
                               </span>
                               <span

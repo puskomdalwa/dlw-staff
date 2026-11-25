@@ -24,7 +24,10 @@ class PengambilanIjazahSignatureTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['app.url' => 'http://localhost']);
+        config([
+            'app.url' => 'http://localhost',
+            'simkeu.simkeu_url' => null,
+        ]);
         URL::forceRootUrl('http://localhost');
     }
 
@@ -85,21 +88,23 @@ class PengambilanIjazahSignatureTest extends TestCase
                 && $job->isSignedSk6 === false;
         });
 
-        // 2. Index endpoint includes 5-step signature summary
+        // 2. Index endpoint includes 4 visible signature steps (baku_kabag hidden from UI timeline, baku_aupk labeled BAKU)
         $indexRes = $this->actingAs($user, 'sanctum')->getJson('/api/form-pengambilan-ijazah');
         $indexRes->assertStatus(200)
             ->assertJsonPath('data.data.0.id', $form->id)
             ->assertJsonPath('data.data.0.signed_count', 0)
-            ->assertJsonPath('data.data.0.total_steps', 5)
+            ->assertJsonPath('data.data.0.total_steps', 4)
             ->assertJsonPath('data.data.0.is_completed', false);
 
         $indexSteps = $indexRes->json('data.data.0.signatures');
         $this->assertSame(
-            ['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'],
+            ['keuangan_pondok', 'baku_aupk', 'baak', 'warek_1'],
             array_column($indexSteps, 'step_key')
         );
+        $this->assertSame([1, 2, 3, 4], array_column($indexSteps, 'step_order'));
+        $this->assertSame('BAKU', $indexSteps[1]['short_label']);
         $this->assertSame(
-            [true, false, false, false, false],
+            [true, false, false, false],
             array_column($indexSteps, 'can_sign_in_staff')
         );
 
@@ -258,12 +263,13 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.total', 1);
 
-        // 11. Verify index returns short_label & is_signed booleans (no raw Eloquent overwrite)
+        // 11. Verify index returns short_label ('BAKU') & is_signed booleans (no raw Eloquent overwrite)
         $indexCheck = $this->actingAs($user, 'sanctum')->getJson('/api/form-pengambilan-ijazah');
         $indexCheck->assertStatus(200)
             ->assertJsonPath('data.data.0.signatures.0.short_label', 'Keu. Pondok')
+            ->assertJsonPath('data.data.0.signatures.1.short_label', 'BAKU')
             ->assertJsonPath('data.data.0.signatures.0.is_signed', true)
-            ->assertJsonPath('data.data.0.signatures.4.is_signed', false);
+            ->assertJsonPath('data.data.0.signatures.3.is_signed', false);
     }
 
     public function test_signer_defaults_can_be_configured_and_applied_across_module_records(): void
@@ -740,13 +746,30 @@ class PengambilanIjazahSignatureTest extends TestCase
         $this->assertSame(['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'], array_column($defaults, 'step_key'));
         $this->assertSame([1, 2, 3, 4, 5], array_column($defaults, 'step_order'));
 
+        // Internal timeline hides baku_kabag (4 visible steps, baku_aupk labeled BAKU)
         $timelineRes = $this->actingAs($user, 'sanctum')->getJson("/api/form-pengambilan-ijazah/{$form->id}/signatures");
         $timelineRes->assertStatus(200);
         $steps = $timelineRes->json('data.steps');
-        $this->assertSame(['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'], array_column($steps, 'step_key'));
-        $this->assertSame([1, 2, 3, 4, 5], array_column($steps, 'step_order'));
-        $this->assertSame('approved', $steps[2]['status']);
-        $this->assertSame('pij_tok_2', $steps[2]['signature_token']);
-        $this->assertSame('pending', $steps[1]['status']);
+        $this->assertSame(['keuangan_pondok', 'baku_aupk', 'baak', 'warek_1'], array_column($steps, 'step_key'));
+        $this->assertSame([1, 2, 3, 4], array_column($steps, 'step_order'));
+        $this->assertSame('approved', $steps[1]['status']);
+        $this->assertSame('BAKU', $steps[1]['short_label']);
+        $this->assertSame('pij_tok_2', $steps[1]['signature_token']);
+
+        // External API still exposes all 5 steps including baku_kabag
+        $apiKey = IntegrationApiKey::getOrCreateForService(
+            'pengambilan_ijazah_external',
+            'Form Pengambilan Ijazah External Integration',
+            'pij_',
+            $user->id
+        )->api_key;
+        $extRes = $this->withHeaders(['X-API-Key' => $apiKey])
+            ->getJson("/api/external/form-pengambilan-ijazah/{$form->id}");
+        $extRes->assertStatus(200);
+        $extSteps = $extRes->json('data.steps');
+        $this->assertSame(['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'], array_column($extSteps, 'step_key'));
+        $this->assertSame([1, 2, 3, 4, 5], array_column($extSteps, 'step_order'));
+        $this->assertSame('pending', $extSteps[1]['status']);
+        $this->assertSame('approved', $extSteps[2]['status']);
     }
 }

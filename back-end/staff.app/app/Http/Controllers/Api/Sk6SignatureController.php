@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Validator;
 
 class Sk6SignatureController extends Controller
 {
-    private const STEP_RULE = 'required|in:kaprodi,kkn,keamanan,baku_kabag,baku_aupk,idaroh_syuun';
-    private const STEP_ITEM_RULE = 'string|in:kaprodi,kkn,keamanan,baku_kabag,baku_aupk,idaroh_syuun';
+    private const STEP_RULE = 'required|in:kaprodi,kkn,keamanan,baku_kabag,baku_aupk,idaroh_syuun,warek_1';
+    private const STEP_ITEM_RULE = 'string|in:kaprodi,kkn,keamanan,baku_kabag,baku_aupk,idaroh_syuun,warek_1';
 
     public function __construct(private Sk6SignatureService $signatureService)
     {
@@ -34,7 +34,7 @@ class Sk6SignatureController extends Controller
             ], 404);
         }
 
-        $steps = $this->signatureService->formatTimeline($sk6, true);
+        $steps = $this->signatureService->formatTimeline($sk6, true, false);
         $signedCount = collect($steps)->where('status', 'approved')->count();
 
         return response()->json([
@@ -49,7 +49,7 @@ class Sk6SignatureController extends Controller
                     'tanggal' => $sk6->tanggal,
                     'signed_count' => $signedCount,
                     'total_steps' => count($steps),
-                    'is_completed' => $signedCount === count($steps),
+                    'is_completed' => $this->signatureService->isCompleted($sk6),
                 ],
                 'steps' => $steps,
             ],
@@ -100,7 +100,8 @@ class Sk6SignatureController extends Controller
                 'user_id' => Auth::id(),
             ]);
 
-            $steps = $this->signatureService->formatTimeline($sk6->fresh(), true);
+            $freshSk6 = $sk6->fresh();
+            $steps = $this->signatureService->formatTimeline($freshSk6, true, false);
             $signedCount = collect($steps)->where('status', 'approved')->count();
 
             return response()->json([
@@ -109,7 +110,7 @@ class Sk6SignatureController extends Controller
                     'steps' => $steps,
                     'signed_count' => $signedCount,
                     'total_steps' => count($steps),
-                    'is_completed' => $signedCount === count($steps),
+                    'is_completed' => $this->signatureService->isCompleted($freshSk6),
                 ],
                 'message' => 'Konfirmasi TTD QR berhasil disimpan',
             ]);
@@ -143,7 +144,8 @@ class Sk6SignatureController extends Controller
 
         try {
             $this->signatureService->revokeStep($sk6, $stepKey);
-            $steps = $this->signatureService->formatTimeline($sk6->fresh(), true);
+            $freshSk6 = $sk6->fresh();
+            $steps = $this->signatureService->formatTimeline($freshSk6, true, false);
             $signedCount = collect($steps)->where('status', 'approved')->count();
 
             return response()->json([
@@ -152,7 +154,7 @@ class Sk6SignatureController extends Controller
                     'steps' => $steps,
                     'signed_count' => $signedCount,
                     'total_steps' => count($steps),
-                    'is_completed' => $signedCount === count($steps),
+                    'is_completed' => $this->signatureService->isCompleted($freshSk6),
                 ],
                 'message' => 'Konfirmasi TTD berhasil dibatalkan',
             ]);
@@ -186,7 +188,8 @@ class Sk6SignatureController extends Controller
                     ['step_order' => 3, 'step_key' => 'keamanan', 'title' => 'Ketua Qismul Aman'],
                     ['step_order' => 4, 'step_key' => 'baku_kabag', 'title' => 'Kabag BAKU'],
                     ['step_order' => 5, 'step_key' => 'baku_aupk', 'title' => 'Kepala Biro AUPK'],
-                    ['step_order' => 6, 'step_key' => 'idaroh_syuun', 'title' => 'Idaroh Syuun'],
+                    ['step_order' => 6, 'step_key' => 'idaroh_syuun', 'title' => 'Idaroh Syuun (Tanpa Surat)'],
+                    ['step_order' => 7, 'step_key' => 'warek_1', 'title' => 'Wakil Rektor 1'],
                 ],
             ],
             'message' => 'Konfigurasi integrasi API SK6 berhasil diambil',
@@ -488,7 +491,7 @@ class Sk6SignatureController extends Controller
         ])->where('signature_token', $token)->first();
 
         $timeline = $sig && $sig->suratKeterangan6
-            ? $this->signatureService->formatTimeline($sig->suratKeterangan6, false)
+            ? $this->signatureService->formatTimeline($sig->suratKeterangan6, false, false)
             : [];
 
         return response()->view('verify.sk6', [

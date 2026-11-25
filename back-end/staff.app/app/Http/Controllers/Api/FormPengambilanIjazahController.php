@@ -71,13 +71,14 @@ class FormPengambilanIjazahController extends Controller
 
         $paginated = $data->paginate($request->input('limit', 10));
         $paginated->getCollection()->transform(function (FormPengambilanIjazah $item) {
-            $steps = $this->signatureService->formatTimeline($item, false);
+            $steps = $this->signatureService->formatTimeline($item, false, false);
             $signedCount = collect($steps)->where('status', 'approved')->count();
+            $isCompleted = $this->signatureService->isCompleted($item);
             // Clear Eloquent relation cache so JSON serializes the formatted timeline array instead of raw models
             $item->unsetRelation('signatures');
             $item->setAttribute('signed_count', $signedCount);
             $item->setAttribute('total_steps', count($steps));
-            $item->setAttribute('is_completed', $signedCount === count($steps));
+            $item->setAttribute('is_completed', $isCompleted);
             $item->setAttribute('signatures', $steps);
             return $item;
         });
@@ -328,7 +329,7 @@ class FormPengambilanIjazahController extends Controller
             if (!$this->signatureService->isCompleted($data)) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Tanda tangan QR belum lengkap (wajib 5/5 terkonfirmasi). Silakan lengkapi di menu Timeline TTD.',
+                    'message' => 'Tanda tangan QR belum lengkap. Silakan lengkapi di menu Timeline TTD.',
                 ], 422);
             }
 

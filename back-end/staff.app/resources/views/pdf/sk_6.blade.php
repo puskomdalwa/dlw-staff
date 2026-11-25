@@ -470,10 +470,10 @@
             <td width="55%"></td>
             <td width="45%" style="text-align:center;">
                 Bangil, {{ $tanggal_surat }}<br>
-                {{ $skukd_title ?? 'Wakil Rektor I' }},<br>
-                @if(!empty($qr_idaroh_syuun))
+                {{ $skukd_title ?? 'Wakil Rektor 1' }},<br>
+                @if(!empty($qr_warek_1))
                     <div style="margin: 8px 0;">
-                        <img src="{{ $qr_idaroh_syuun }}" style="width: 82px; height: 82px;" alt="QR Wakil Rektor I">
+                        <img src="{{ $qr_warek_1 }}" style="width: 82px; height: 82px;" alt="QR Wakil Rektor 1">
                     </div>
                 @else
                     <br><br><br>

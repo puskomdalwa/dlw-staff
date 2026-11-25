@@ -869,9 +869,18 @@ export default defineComponent({
                           <div>
                             <div class="d-flex align-items-center gap-2 flex-wrap">
                               <span class="fw-semibold fs-14">
-                                {{ step.title }}
+                                {{ step.step_key === 'baku_aupk' ? 'BAKU' : step.title }}
                               </span>
-                              <span class="badge bg-light text-dark border">
+                              <span
+                                v-if="step.step_key === 'idaroh_syuun'"
+                                class="badge bg-secondary-transparent"
+                              >
+                                Tanpa Surat
+                              </span>
+                              <span
+                                v-if="step.step_key !== 'baku_aupk'"
+                                class="badge bg-light text-dark border"
+                              >
                                 {{ step.step_key }}
                               </span>
                               <span
@@ -1070,7 +1079,7 @@ export default defineComponent({
                 API &amp; Dokumentasi Integrasi TTD QR SK 6
               </h5>
               <small class="text-muted">
-                Hubungkan website eksternal (Prodi, KKN, Keamanan, BAKU Kabag, BAKU AUPK, Idaroh Syuun) untuk konfirmasi TTD SK 6.
+                Hubungkan website eksternal (Prodi, KKN, Keamanan, BAKU Kabag, BAKU AUPK, Idaroh Syuun, Wakil Rektor 1) untuk konfirmasi TTD SK 6.
               </small>
             </div>
             <button
@@ -1301,7 +1310,7 @@ export default defineComponent({
                 Pengaturan Default Penandatangan — SK 6 (1 Modul)
               </h5>
               <small class="text-muted">
-                Atur pejabat &amp; jabatan default untuk 6 tahap SK 6 dan terapkan ke seluruh data modul ini.
+                Atur pejabat &amp; jabatan default untuk 7 tahap SK 6 dan terapkan ke seluruh data modul ini.
               </small>
             </div>
             <button

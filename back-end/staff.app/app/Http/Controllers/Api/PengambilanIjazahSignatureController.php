@@ -37,7 +37,7 @@ class PengambilanIjazahSignatureController extends Controller
             ], 404);
         }
 
-        $steps = $this->signatureService->formatTimeline($form, true);
+        $steps = $this->signatureService->formatTimeline($form, true, false);
         $signedCount = collect($steps)->where('status', 'approved')->count();
 
         return response()->json([
@@ -52,7 +52,7 @@ class PengambilanIjazahSignatureController extends Controller
                     'tanggal_sidang' => $form->tanggal_sidang,
                     'signed_count' => $signedCount,
                     'total_steps' => count($steps),
-                    'is_completed' => $signedCount === count($steps),
+                    'is_completed' => $this->signatureService->isCompleted($form),
                     'drive_link' => $form->drive_link,
                     'signed_drive_link' => $form->signed_drive_link,
                 ],
@@ -106,7 +106,7 @@ class PengambilanIjazahSignatureController extends Controller
             ]);
 
             $fresh = $form->fresh();
-            $steps = $this->signatureService->formatTimeline($fresh, true);
+            $steps = $this->signatureService->formatTimeline($fresh, true, false);
             $signedCount = collect($steps)->where('status', 'approved')->count();
 
             return response()->json([
@@ -115,7 +115,7 @@ class PengambilanIjazahSignatureController extends Controller
                     'steps' => $steps,
                     'signed_count' => $signedCount,
                     'total_steps' => count($steps),
-                    'is_completed' => $signedCount === count($steps),
+                    'is_completed' => $this->signatureService->isCompleted($fresh),
                     'drive_link' => $fresh->drive_link,
                     'signed_drive_link' => $fresh->signed_drive_link,
                 ],
@@ -152,7 +152,7 @@ class PengambilanIjazahSignatureController extends Controller
         try {
             $this->signatureService->revokeStep($form, $stepKey);
             $fresh = $form->fresh();
-            $steps = $this->signatureService->formatTimeline($fresh, true);
+            $steps = $this->signatureService->formatTimeline($fresh, true, false);
             $signedCount = collect($steps)->where('status', 'approved')->count();
 
             return response()->json([
@@ -161,7 +161,7 @@ class PengambilanIjazahSignatureController extends Controller
                     'steps' => $steps,
                     'signed_count' => $signedCount,
                     'total_steps' => count($steps),
-                    'is_completed' => $signedCount === count($steps),
+                    'is_completed' => $this->signatureService->isCompleted($fresh),
                     'drive_link' => $fresh->drive_link,
                     'signed_drive_link' => $fresh->signed_drive_link,
                 ],
@@ -500,7 +500,7 @@ class PengambilanIjazahSignatureController extends Controller
             ->first();
 
         $timeline = $sig && $sig->formPengambilanIjazah
-            ? $this->signatureService->formatTimeline($sig->formPengambilanIjazah, false)
+            ? $this->signatureService->formatTimeline($sig->formPengambilanIjazah, false, false)
             : [];
 
         return response()->view('verify.pengambilan_ijazah', [

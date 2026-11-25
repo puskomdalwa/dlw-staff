@@ -26,9 +26,13 @@ class PengambilanIjazahSignatureService
     public const SHORT_LABELS = [
         'keuangan_pondok' => 'Keu. Pondok',
         'baku_kabag' => 'BAKU Kabag',
-        'baku_aupk' => 'BAKU AUPK',
+        'baku_aupk' => 'BAKU',
         'baak' => 'BAAK',
         'warek_1' => 'Warek I',
+    ];
+
+    public const HIDDEN_TIMELINE_STEPS = [
+        'baku_kabag',
     ];
 
     public const STAFF_SIGNABLE_STEPS = [
@@ -312,15 +316,18 @@ class PengambilanIjazahSignatureService
     /**
      * Format timeline steps for API / UI responses.
      */
-    public function formatTimeline(FormPengambilanIjazah $form, bool $withQrDataUri = false): array
+    public function formatTimeline(FormPengambilanIjazah $form, bool $withQrDataUri = false, bool $includeHidden = true): array
     {
         $steps = $this->ensureStepsForForm($form);
+        if (!$includeHidden) {
+            $steps = $steps->reject(fn (PengambilanIjazahSignature $step) => in_array($step->step_key, self::HIDDEN_TIMELINE_STEPS, true))->values();
+        }
 
-        return $steps->map(function (PengambilanIjazahSignature $step) use ($withQrDataUri) {
+        return $steps->values()->map(function (PengambilanIjazahSignature $step, int $idx) use ($withQrDataUri, $includeHidden) {
             $verifyUrl = url('/verify/form-pengambilan-ijazah/' . $step->signature_token);
             $item = [
                 'id' => $step->id,
-                'step_order' => $step->step_order,
+                'step_order' => $includeHidden ? $step->step_order : ($idx + 1),
                 'step_key' => $step->step_key,
                 'short_label' => self::SHORT_LABELS[$step->step_key] ?? $step->step_key,
                 'title' => $step->title,
