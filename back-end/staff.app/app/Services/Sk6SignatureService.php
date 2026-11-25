@@ -44,7 +44,6 @@ class Sk6SignatureService
     ];
 
     public const STAFF_SIGNABLE_STEPS = [
-        'keamanan',
         'idaroh_syuun',
     ];
 

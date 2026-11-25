@@ -104,7 +104,7 @@ class PengambilanIjazahSignatureTest extends TestCase
         $this->assertSame([1, 2, 3, 4], array_column($indexSteps, 'step_order'));
         $this->assertSame('BAKU', $indexSteps[1]['short_label']);
         $this->assertSame(
-            [true, false, false, false],
+            [false, false, false, false],
             array_column($indexSteps, 'can_sign_in_staff')
         );
 
@@ -124,19 +124,13 @@ class PengambilanIjazahSignatureTest extends TestCase
         // Unauthenticated external access rejected
         $this->getJson('/api/external/form-pengambilan-ijazah')->assertStatus(401);
 
-        // 5. Only Keuangan Pondok can be signed internally from web staff; external steps are blocked (403)
-        $this->actingAs($user, 'sanctum')
-            ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/keuangan_pondok/confirm", [
-                'signer_name' => 'Ust. Keuangan Pondok',
-                'notes' => 'Lunas syahriah & tanggungan pondok',
-            ])
-            ->assertStatus(200)
-            ->assertJsonPath('data.signed_count', 1)
-            ->assertJsonPath('data.is_completed', false);
-
-        foreach (['baku_kabag', 'baku_aupk', 'baak', 'warek_1'] as $externalStep) {
+        // 5. All steps on Form Pengambilan Ijazah are external-only and blocked (403) from web staff
+        foreach (['keuangan_pondok', 'baku_kabag', 'baku_aupk', 'baak', 'warek_1'] as $externalStep) {
             $this->actingAs($user, 'sanctum')
                 ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/{$externalStep}/confirm")
+                ->assertStatus(403);
+            $this->actingAs($user, 'sanctum')
+                ->postJson("/api/form-pengambilan-ijazah/{$form->id}/signatures/{$externalStep}/revoke")
                 ->assertStatus(403);
         }
 
@@ -145,7 +139,18 @@ class PengambilanIjazahSignatureTest extends TestCase
             return $job->isSignedSk6 === true;
         });
 
-        // 6. Sign steps 2, 3, 4 & 5 via External API
+        // 6. Sign steps 1, 2, 3, 4 & 5 via External API
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson('/api/external/form-pengambilan-ijazah/by-nim/202285290099/sign', [
+                'step_key' => 'keuangan_pondok',
+                'signer_name' => 'Ust. Keuangan Pondok',
+                'notes' => 'Lunas syahriah & tanggungan pondok',
+                'source' => 'web-pondok',
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.form.signed_count', 1)
+            ->assertJsonPath('data.form.is_completed', false);
+
         $this->withHeaders(['X-API-Key' => $apiKey])
             ->postJson('/api/external/form-pengambilan-ijazah/by-nim/202285290099/sign', [
                 'step_key' => 'baku_kabag',
@@ -504,7 +509,11 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertJsonPath('data.total', 1)
             ->assertJsonPath('data.items.0.id', $formA->id);
 
-        // Internal UI revoke is blocked for external-only steps (403) and allowed for Keuangan Pondok; external API revoke works
+        // Internal UI revoke is blocked for all steps (403); external API revoke works
+        $this->actingAs($user, 'sanctum')
+            ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/keuangan_pondok/revoke")
+            ->assertStatus(403);
+
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/baku_aupk/revoke")
             ->assertStatus(403);
@@ -519,8 +528,8 @@ class PengambilanIjazahSignatureTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 1);
 
-        $this->actingAs($user, 'sanctum')
-            ->postJson("/api/form-pengambilan-ijazah/{$formA->id}/signatures/keuangan_pondok/revoke")
+        $this->withHeaders(['X-API-Key' => $apiKey])
+            ->postJson("/api/external/form-pengambilan-ijazah/{$formA->id}/revoke", ['step_key' => 'keuangan_pondok'])
             ->assertStatus(200)
             ->assertJsonPath('data.signed_count', 0);
 

@@ -35,9 +35,7 @@ class PengambilanIjazahSignatureService
         'baku_kabag',
     ];
 
-    public const STAFF_SIGNABLE_STEPS = [
-        'keuangan_pondok',
-    ];
+    public const STAFF_SIGNABLE_STEPS = [];
 
     public function isStaffSignableStep(string $stepKey): bool
     {

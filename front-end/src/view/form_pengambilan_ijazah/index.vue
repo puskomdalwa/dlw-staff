@@ -278,7 +278,7 @@ export default defineComponent({
       if (typeof step.can_sign_in_staff === "boolean") {
         return step.can_sign_in_staff;
       }
-      return step.step_key === "keuangan_pondok";
+      return false;
     }
 
     function toggleEditStep(step: any) {
