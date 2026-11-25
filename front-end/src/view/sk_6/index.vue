@@ -234,7 +234,7 @@ export default defineComponent({
       if (typeof step.can_sign_in_staff === "boolean") {
         return step.can_sign_in_staff;
       }
-      return step.step_key === "idaroh_syuun";
+      return step.step_key === "keamanan";
     }
 
     function toggleEditStep(step: SignatureStep) {
